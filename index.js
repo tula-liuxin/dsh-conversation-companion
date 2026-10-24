@@ -5,7 +5,7 @@
  *   1. 一次模型调用，同时产出「人话摘要」和「下一条 prompt 的候选」；
  *   2. 用 appendPluginRecord 写一条可重放的会话记录（前端靠投影读它）；
  *   3. 追加一行到本地 JSONL 库。
- * 全程不写 command、不加工具、不产生可见的对话行。
+ * 手动刷新通过宿主命令入口调用同一生成逻辑。
  */
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -15,7 +15,7 @@ import { readFile } from 'node:fs/promises'
 import { createDb } from './db.js'
 
 export const name = 'prompt-copilot'
-export const inject = ['llm', 'sessionProjections', 'sessions']
+export const inject = ['llm', 'sessionProjections', 'sessions', 'commands']
 
 const DEFAULTS = {
   provider: 'deepseek-official',
@@ -161,6 +161,20 @@ export function validateConfig(config = {}) {
   if (typeof settings.logSent !== 'boolean' || typeof settings.dbPath !== 'string') throw new Error('Invalid logging configuration')
   return settings
 }
+// Keep immutable batches in the session projection, including during refresh failure.
+export function foldPrediction(state, event) {
+  if (event.type === 'assistant/message' || event.type === 'turn/start') return null
+  if (event.type !== 'plugin:prompt-copilot/turn') return state
+  const data = event.data
+  const previous = state?.sourceSeq === data.sourceSeq ? state : null
+  const batches = previous?.batches ?? (previous?.next?.length ? [{ at: previous.at, next: previous.next, titles: previous.titles, summary: previous.summary }] : [])
+  if (data.status === 'ready') {
+    const batch = { at: data.at, next: data.next, titles: data.titles, summary: data.summary }
+    return { ...data, batches: batches.some(b => b.at === data.at) ? batches : [...batches, batch] }
+  }
+  return previous ? { ...previous, status: data.status, error: data.error } : data
+}
+
 export function apply(ctx, config) {
   const settings = validateConfig(config)
   const db = createDb(settings.dbPath || defaultDbPath())
@@ -194,9 +208,9 @@ export function apply(ctx, config) {
   ctx.sessionProjections.register({
     key: 'prompt-copilot',
     stateSchema: passthrough,
-    stateVersion: 2,
+    stateVersion: 3,
     init: () => null,
-    apply: (state, event) => event.type === 'plugin:prompt-copilot/turn' ? event.data : event.type === 'assistant/message' || event.type === 'turn/start' ? null : state,
+    apply: foldPrediction,
     wire: { viewSchema: passthrough, view: (state) => state },
   })
 
@@ -210,6 +224,7 @@ export function apply(ctx, config) {
     if (eventsOf(session).some((event) => event.type === 'user/message' && isUserMessage(event.data) && event.time > row.at)) return
     const existing = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
     if (existing?.at >= row.at) {
+      if (existing.status === 'pending' && existing.next?.length) await publish(session, { ...existing, status: 'ready', error: undefined })
       lastPrediction.set(session.id, existing)
       if (existing.status === 'ready' && (existing.titles?.length !== existing.next?.length || existing.promptStyleVersion !== 1)) await generate(session, reply.data.turn)
       return
@@ -230,10 +245,25 @@ export function apply(ctx, config) {
     lastPrediction.clear()
   })
 
-  async function generate(session, completedTurn) {
+  ctx.commands.register({
+    name: 'companion-refresh',
+    description: '重新生成下一句建议，保留旧候选供翻阅',
+    handler: ({ agent }) => {
+      const session = agent.session
+      const source = lastAssistantEvent(session)
+      if (!source || !eventsOf(session).some(e => e.type === 'turn/end' && e.data?.turn === source.data.turn && e.seq > source.seq) || eventsOf(session).some(e => e.seq > source.seq && (e.type === 'turn/start' || e.type === 'user/message'))) return { kind: 'error', text: '请等待当前回复完成后再生成' }
+      if (running.has(session.id)) return { kind: 'error', text: '正在生成，请稍候' }
+      void generate(session, source.data.turn, true)
+      return { kind: 'success' }
+    },
+  })
+
+  async function generate(session, completedTurn, refresh = false) {
     const sessionId = session?.id ?? session?.sessionId ?? 'unknown'
     const source = lastAssistantEvent(session)
     if (!source || source.data?.turn !== completedTurn) return
+    const previous = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
+    const oldPrompts = refresh ? (previous?.batches ?? [previous]).flatMap(b => b?.next ?? []).slice(-30) : []
     const reply = lastAssistantText(session)
     if (reply === '') return
     const context = recentTurns(session, settings.maxInputChars)
@@ -248,7 +278,7 @@ export function apply(ctx, config) {
       await publish(session, { status: 'pending', summary: '', next: [], at: Date.now(), sourceSeq: source.seq })
       let parsed = null
       for (let attempt = 0; attempt < 2 && parsed === null; attempt += 1) {
-        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal)
+        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (refresh ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal)
         parsed = normalize(extractJson(raw), settings.count)
       }
       if (parsed === null) throw new Error('模型没有返回有效的摘要和候选句')
@@ -270,7 +300,7 @@ export function apply(ctx, config) {
     } catch (error) {
       if (!controller.signal.aborted && !disposed) {
         report(error, sessionId)
-        await publish(session, { status: 'error', summary: '', next: [], at: Date.now(), error: String(error?.message ?? error) }).catch(() => {})
+        await publish(session, { status: 'error', sourceSeq: source.seq, summary: '', next: [], at: Date.now(), error: String(error?.message ?? error) }).catch(() => {})
       }
     } finally {
       if (running.get(sessionId) === controller) running.delete(sessionId)
@@ -292,7 +322,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.5.0-beta.5', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.6.0-beta.1', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 

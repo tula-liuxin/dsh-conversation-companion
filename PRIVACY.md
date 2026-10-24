@@ -10,3 +10,5 @@
 - 提交问题时只附脱敏的版本、错误和复现步骤，不要上传完整聊天日志、令牌或私人截图。
 
 Recent conversation is sent to your configured model provider. Generated results are stored in DSH sessions and a plaintext local cache. Separate raw-user-message logging is opt-in. Summary edits stay in localStorage. Uninstalling does not erase these records.
+
+手动换一组会再次向已配置的模型服务发送近期对话及最多 30 条旧候选，以减少重复。候选历史保存在会话记录中；刷新命令也会产生宿主命令记录。

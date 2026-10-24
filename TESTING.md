@@ -2,7 +2,14 @@
 
 Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also upgraded and version-checked at 0.2.1-rc.3.
 
-## 0.5.0-beta.3 update validation
+## 0.6.0-beta.1 validation
+
+- Five Node tests pass: keyboard/history navigation and remote dispatch, immutable projection history across pending/failure/replay, plus prior core checks.
+- Real Desktop Session SDK with model stub: manual refresh adds a second persistent batch; provider failure preserves both; new-turn cancellation remains intact.
+- Installed in Windows Desktop 0.2.1-rc.3. Actual configured model: Right opens the first batch, another Right generates a new batch of three, Left restores all three original suggestions. UI shows batch 2/2 then 1/2. No user prompt was sent.
+- Refresh uses the host command entry point; the host records command lifecycle events. Generating a new batch incurs an additional model call, with at most two attempts. Older groups are retained for that assistant reply; a new reply starts a new history.
+
+## 0.5.0-beta.3 update validation (historical)
 
 - Installed beta.3 with the bundled Desktop CLI and restarted Desktop.
 - Actual demo UI: default first candidate only; single Tab expands three with an empty draft; Down selects the second; Enter fills that candidate into the draft. The Send button remains available and conversation remains at one turn: adoption did not send.

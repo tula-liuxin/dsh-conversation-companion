@@ -132,13 +132,13 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots'],
+      inject: ['slots', 'remote', 'remote.commands'],
       apply(ctx) {
         let current = { sessionId: null, view: null, open: false }
         const listeners = new Set()
         // Expansion belongs only to the current prediction batch; new batches are compact.
         const expandedBatches = new Map()
-        const batchKey = (view) => String(view?.sourceSeq ?? '') + ':' + String(view?.at ?? '')
+        const batchKey = (view) => String(view?.sourceSeq ?? view?.at ?? '')
         const isExpanded = (sessionId, view) => expandedBatches.get(sessionId) === batchKey(view)
         const setExpanded = (sessionId, view, expanded) => {
           if (expanded) expandedBatches.set(sessionId, batchKey(view))
@@ -155,7 +155,15 @@ window.__ModuleLoader__.load({
         const openDialog = (sessionId, view) => publish({ sessionId, view, open: true })
 
         function Suggestions(props) {
-          const view = props.useProjection(KEY)
+          const live = props.useProjection(KEY)
+          const [browsing, setBrowsing] = useState(null)
+          const [requestError, setRequestError] = useState('')
+          const requesting = useRef(false)
+          const batches = live?.batches?.length ? live.batches : live?.next?.length ? [live] : []
+          const matched = browsing?.sessionId === props.sessionId && browsing?.sourceSeq === live?.sourceSeq ? batches.findIndex(b => b.at === browsing.at) : -1
+          const page = matched < 0 ? batches.length - 1 : matched
+          const batch = batches[page]
+          const view = useMemo(() => batch ? { ...live, ...batch } : live, [live, batch])
           useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
           const draft = props.useInput((input) => input?.draft ?? '')
           const running = props.useSession((session) => session?.running ?? false)
@@ -213,9 +221,24 @@ window.__ModuleLoader__.load({
               } else if (expanded && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
                 event.preventDefault(); event.stopPropagation()
                 setSelected((value) => (value + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length)
-              } else if (event.key === 'ArrowDown' && !expanded) {
+              } else if (event.key === 'ArrowRight' && !expanded) {
                 event.preventDefault(); event.stopPropagation()
                 setSelected(0); setExpanded(props.sessionId, view, true)
+              } else if (event.key === 'ArrowLeft' && expanded) {
+                event.preventDefault(); event.stopPropagation()
+                const older = batches[Math.max(0, page - 1)]
+                if (older) { setBrowsing({ sessionId: props.sessionId, sourceSeq: live.sourceSeq, at: older.at }); setSelected(0) }
+              } else if (event.key === 'ArrowRight' && expanded) {
+                event.preventDefault(); event.stopPropagation()
+                if (requesting.current || live?.status === 'pending') return
+                requesting.current = true
+                setRequestError(''); setBrowsing(null)
+                Promise.resolve().then(() => ctx.remote.commands.execute(props.sessionId, '/companion-refresh', []))
+                  .then(result => {
+                    if (!result.ok) throw new Error(result.error?.message || '无法重新生成')
+                    if (result.value?.result?.kind === 'error') throw new Error(result.value.result.text)
+                  }).catch(error => setRequestError(error.message || String(error)))
+                  .finally(() => { requesting.current = false })
               } else if (event.key === 'Tab') {
                 // Consume before setting draft so the host cannot send this keypress.
                 event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
@@ -224,13 +247,15 @@ window.__ModuleLoader__.load({
             }
             window.addEventListener('keydown', onKey, true)
             return () => window.removeEventListener('keydown', onKey, true)
-          }, [available, expanded, text, options.length, props.inputActions, props.sessionId, view])
+          }, [available, expanded, text, options.length, props.inputActions, props.sessionId, view, live, page, batches])
           if (!available) return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
           return h(React.Fragment, null,
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
-            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
+            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · ' + options.length + ' 个方向' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · Tab 采用' : '↓ 更多 · Tab 采用'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 旧组 · → 换一组 · Tab 采用' : '→ 更多 · Tab 采用'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              live?.status === 'pending' ? h('div', { role: 'status', style: { fontSize: 12 } }, '正在生成新的一组，旧建议仍可查看…') : null,
+              (requestError || live?.error) ? h('div', { role: 'status', style: { fontSize: 12, color: '#b42318' } }, requestError || live.error) : null,
               ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
                 onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); list.current?.focus({ preventScroll: true }) },
                 style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : 'transparent', cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },
