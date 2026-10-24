@@ -33,7 +33,8 @@ const passthrough = { parse: (value) => value }
 
 const SYSTEM = [
   '你是一个「副驾驶」，读最近几轮对话，输出 JSON，不要任何解释。',
-  '格式：{"summary":"...","next":[{"title":"短标题","prompt":"完整用户提示词"},{"title":"短标题","prompt":"完整用户提示词"},{"title":"短标题","prompt":"完整用户提示词"}]}',
+  '格式：{"next":[{"title":"短标题","prompt":"完整用户提示词"},{"title":"短标题","prompt":"完整用户提示词"},{"title":"短标题","prompt":"完整用户提示词"}],"summary":"..."}。先完整输出next数组，再输出summary，让用户先看到候选；内容质量要求不变。',
+  '先充分理解完整对话和用户意图，再输出候选；不能为了先显示而省略必要判断或降低候选质量。',
   'summary：用 3-5 句大白话复述最后一条 AI 回复——在回答什么、结论是什么、有哪些动作或风险。不要复述原文，不要用「本文」「该回复」。',
   '口吻：参考真实用户近期原话，像用户平时说话一样简短、直接、口语化。不要写成详细任务书或替用户做需求扩写。',
   '边界：只延续用户明确表达的意图；不要把AI自己提出的建议、假设、路径或约束当成用户要求。不要新增用户没说过的输出格式、目录、数量、步骤、验收标准、禁止事项或其他限制。无需重复上下文已经清楚的背景。方向不确定就用简短追问，不能替用户承诺一整套方案。',
@@ -129,7 +130,7 @@ export function normalize(parsed, count = 3) {
   return { summary, next, titles }
 }
 
-async function streamCompletion(ctx, settings, prompt, signal, system = SYSTEM) {
+async function streamCompletion(ctx, settings, prompt, signal, system = SYSTEM, onText) {
   let text = ''
   const stream = ctx.llm.stream({
     provider: settings.provider,
@@ -141,12 +142,15 @@ async function streamCompletion(ctx, settings, prompt, signal, system = SYSTEM) 
     signal,
   })
   for await (const chunk of stream) {
-    if (chunk.type === 'text-delta') text += chunk.text
+    if (chunk.type === 'text-delta') {
+      text += chunk.text
+      if (onText) await onText(text)
+    }
   }
   return text
 }
 
-export async function complete(ctx, settings, prompt, signal, system = SYSTEM) {
+export async function complete(ctx, settings, prompt, signal, system = SYSTEM, onText) {
   const controller = new AbortController()
   let timer, onAbort
   const interrupted = new Promise((_, reject) => {
@@ -157,7 +161,7 @@ export async function complete(ctx, settings, prompt, signal, system = SYSTEM) {
   })
   try {
     if (signal.aborted) return await interrupted
-    return await Promise.race([streamCompletion(ctx, settings, prompt, controller.signal, system), interrupted])
+    return await Promise.race([streamCompletion(ctx, settings, prompt, controller.signal, system, onText), interrupted])
   } finally { clearTimeout(timer); signal.removeEventListener('abort', onAbort) }
 }
 
@@ -175,21 +179,83 @@ export async function reviewInput(ctx, settings, session, draft, mode, signal) {
   const raw = await complete(ctx, settings, JSON.stringify(input), signal, mode === 'deep' ? DEEP_REVIEW_SYSTEM : REVIEW_SYSTEM)
   return { mode, edits: validateEdits(draft, extractJson(raw), mode) }
 }
+// Only a closed, valid entire candidate array can become interactive.
+export function streamedCandidates(raw, count = 3) {
+  const start = raw.indexOf('{')
+  const match = /^\{\s*"next"\s*:\s*\[/.exec(raw.slice(start))
+  if (start < 0 || !match) return null
+  const arrayStart = start + match[0].lastIndexOf('[')
+  let depth = 0, quoted = false, escaped = false
+  for (let i = arrayStart; i < raw.length; i++) {
+    const c = raw[i]
+    if (quoted) {
+      if (escaped) escaped = false
+      else if (c === '\\') escaped = true
+      else if (c === '"') quoted = false
+    } else if (c === '"') quoted = true
+    else if (c === '[') depth++
+    else if (c === ']' && --depth === 0) {
+      try { return normalize({ next: JSON.parse(raw.slice(arrayStart, i + 1)), summary: 'pending' }, count) }
+      catch { return null }
+    }
+  }
+  return null
+}
+
+export function createReviewWorker(ctx, settings, now = Date.now) {
+  const active = new Map(), cache = new Map()
+  return {
+    cancel(id) { active.get(id)?.controller.abort() },
+    dispose() { for (const job of active.values()) job.controller.abort(); active.clear(); cache.clear() },
+    run(session, draft, mode, signal) {
+      const key = JSON.stringify([session.id, settings.provider, settings.model, mode, draft, mode === 'deep' ? recentTurns(session, settings.maxInputChars) : ''])
+      if (signal?.aborted) return Promise.reject(new Error('Generation cancelled'))
+      const cached = cache.get(key)
+      if (cached && now() - cached.at < 60000) {
+        active.get(session.id)?.controller.abort()
+        return Promise.resolve(cached.value)
+      }
+      cache.delete(key)
+      const existing = active.get(session.id)
+      if (existing?.key === key && !existing.controller.signal.aborted) return existing.promise
+      existing?.controller.abort()
+      const controller = new AbortController()
+      const abort = () => controller.abort()
+      signal?.addEventListener('abort', abort, { once: true })
+      const job = { key, controller, promise: null }
+      job.promise = reviewInput(ctx, settings, session, draft, mode, controller.signal).then(value => {
+        if (!controller.signal.aborted) {
+          cache.set(key, { at: now(), value })
+          while (cache.size > 20) cache.delete(cache.keys().next().value)
+        }
+        return value
+      }).finally(() => {
+        signal?.removeEventListener('abort', abort)
+        if (active.get(session.id) === job) active.delete(session.id)
+      })
+      active.set(session.id, job)
+      return job.promise
+    },
+  }
+}
 // Keep immutable batches in the session projection, including during refresh failure.
 export function foldPrediction(state, event) {
   if (event.type === 'assistant/message' || event.type === 'turn/start') return null
   if (event.type !== 'plugin:prompt-copilot/turn') return state
   const data = event.data
   const previous = state?.sourceSeq === data.sourceSeq ? state : null
-  const toBatch = value => ({ at: value.at, next: value.next ?? [], titles: value.titles ?? [], summary: value.summary ?? '' })
+  const toBatch = value => ({ at: value.at, next: value.next ?? [], titles: value.titles ?? [], summary: value.summary ?? '', ...(value.summaryPending ? { summaryPending: true } : {}) })
   const batches = previous?.batches ?? (previous?.next?.length ? [toBatch(previous)] : [])
   if (data.status === 'ready') {
     const batch = toBatch(data)
-    return { ...data, batches: batches.some(b => b.at === data.at) ? batches : [...batches, batch] }
+    return { ...data, batches: batches.some(b => b.at === data.at) ? batches.map(b => b.at === data.at ? batch : b) : [...batches, batch] }
   }
   if (!previous) return data
   const { error: oldError, ...retained } = previous
-  return { ...retained, status: data.status, ...(typeof data.error === 'string' ? { error: data.error } : {}) }
+  return { ...retained, status: data.status, ...(data.status === 'error' && retained.summaryPending ? {
+    summaryPending: false,
+    batches: batches.map(b => b.at === retained.at ? { ...b, summaryPending: false } : b),
+  } : {}), ...(typeof data.error === 'string' ? { error: data.error } : {}) }
 }
 
 export function apply(ctx, config) {
@@ -225,14 +291,14 @@ export function apply(ctx, config) {
   ctx.sessionProjections.register({
     key: 'prompt-copilot',
     stateSchema: passthrough,
-    stateVersion: 4,
+    stateVersion: 5,
     init: () => null,
     apply: foldPrediction,
     wire: { viewSchema: passthrough, view: (state) => state },
   })
 
   let disposed = false
-  const reviews = new Map()
+  const reviews = createReviewWorker(ctx, settings)
   ctx.commands.register({
     name: 'companion-titles', description: '将旧候选概括为简短完整的标题', recordInput: false,
     handler: async ({ rawInput, signal }) => {
@@ -254,22 +320,20 @@ export function apply(ctx, config) {
       try { ({ draft, mode = 'basic' } = JSON.parse(rawInput)) } catch { return { kind: 'error', text: '无法读取待检查输入' } }
       if (!['basic', 'deep'].includes(mode)) return { kind: 'error', text: '未知检查模式' }
       if (typeof draft !== 'string' || !draft.trim() || draft.length > 12000) return { kind: 'error', text: '输入需在 1–12000 字符以内' }
-      const id = agent.session.id
-      reviews.get(id)?.abort()
-      const controller = new AbortController()
-      reviews.set(id, controller)
-      const abort = () => controller.abort()
-      if (signal?.aborted) abort()
-      signal?.addEventListener('abort', abort, { once: true })
       try {
-        return { kind: 'success', text: JSON.stringify(await reviewInput(ctx, settings, agent.session, draft, mode, controller.signal)) }
+        return { kind: 'success', text: JSON.stringify(await reviews.run(agent.session, draft, mode, signal)) }
       } catch { return { kind: 'error', text: '暂时无法检查输入，请继续编辑，下一次会重新检查' } }
-      finally { signal?.removeEventListener('abort', abort); if (reviews.get(id) === controller) reviews.delete(id) }
     },
   })
   async function restore(session) {
     await cacheReady
     if (disposed || running.has(session.id)) return
+    const interrupted = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
+    if (interrupted?.summaryPending) {
+      await publish(session, { status: 'error', sourceSeq: interrupted.sourceSeq, error: '摘要生成已中断，候选仍可使用', at: interrupted.at })
+      lastPrediction.set(session.id, ctx.sessionProjections.stateOf(session, 'prompt-copilot'))
+      return
+    }
     const row = cached.get(session.id)
     const reply = lastAssistantEvent(session)
     if (!row || !reply || row.at < reply.time) return
@@ -295,8 +359,7 @@ export function apply(ctx, config) {
 
   ctx.effect(() => () => {
     disposed = true
-    for (const controller of reviews.values()) controller.abort()
-    reviews.clear()
+    reviews.dispose()
     for (const controller of running.values()) controller.abort()
     running.clear()
     lastPrediction.clear()
@@ -320,6 +383,7 @@ export function apply(ctx, config) {
     const source = lastAssistantEvent(session)
     if (!source || source.data?.turn !== completedTurn) return
     const previous = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
+    if (!refresh && running.get(sessionId)?.sourceSeq === source.seq && !running.get(sessionId).signal.aborted) return
     const oldPrompts = refresh ? (previous?.batches ?? [previous]).flatMap(b => b?.next ?? []).slice(-30) : []
     const reply = lastAssistantText(session)
     if (reply === '') return
@@ -329,28 +393,36 @@ export function apply(ctx, config) {
 
     running.get(sessionId)?.abort()
     const controller = new AbortController()
+    controller.sourceSeq = source.seq
     running.set(sessionId, controller)
+    const at = Math.max(Date.now(), (previous?.at ?? 0) + 1)
+    let early = null
+    const prediction = (value, summaryPending = false) => ({
+      status: 'ready', promptStyleVersion: 1, sourceSeq: source.seq,
+      summary: summaryPending ? '' : value.summary, next: value.next, titles: value.titles,
+      at, turn: completedTurn, ...(summaryPending ? { summaryPending: true } : {}),
+    })
 
     try {
       await publish(session, { status: 'pending', summary: '', next: [], at: Date.now(), sourceSeq: source.seq })
       let parsed = null
-      for (let attempt = 0; attempt < 2 && parsed === null; attempt += 1) {
-        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (refresh ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal)
+      for (let attempt = 0; attempt < 2 && parsed === null && !early; attempt += 1) {
+        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (refresh ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal, SYSTEM, async raw => {
+          if (early || controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
+          const candidates = streamedCandidates(raw, settings.count)
+          if (!candidates) return
+          early = candidates
+          const partial = prediction(candidates, true)
+          await publish(session, partial)
+          lastPrediction.set(sessionId, partial)
+        })
         parsed = normalize(extractJson(raw), settings.count)
       }
-      if (parsed === null) throw new Error('模型没有返回有效的摘要和候选句')
+      if (parsed === null) throw new Error(early ? '候选已生成，但摘要未完成；可继续采用候选' : '模型没有返回有效的摘要和候选句')
+      if (early && (JSON.stringify(parsed.next) !== JSON.stringify(early.next) || JSON.stringify(parsed.titles) !== JSON.stringify(early.titles))) throw new Error('模型返回了冲突的候选，已保留先前验证通过的一组')
       if (controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
 
-      const payload = {
-        status: 'ready',
-        promptStyleVersion: 1,
-        sourceSeq: source.seq,
-        summary: parsed.summary,
-        next: parsed.next,
-        titles: parsed.titles,
-        at: Date.now(),
-        turn: completedTurn,
-      }
+      const payload = prediction(parsed)
       await publish(session, payload)
       lastPrediction.set(sessionId, payload)
       await db.append({ t: 'predicted', sessionId, at: payload.at, summary: payload.summary, next: payload.next, titles: payload.titles, promptStyleVersion: payload.promptStyleVersion })
@@ -365,10 +437,11 @@ export function apply(ctx, config) {
   }
 
   ctx.on('session/event', (session, event) => {
-    if (event?.type === 'turn/start') running.get(session.id)?.abort()
+    if (event?.type === 'turn/start') { running.get(session.id)?.abort(); reviews.cancel(session.id) }
     if (event?.type === 'user/message') {
       if (!isUserMessage(event.data?.message ?? event.data)) return
       running.get(session.id)?.abort()
+      reviews.cancel(session.id)
       const text = textOfMessage(event.data?.message ?? event.data)
       if (text !== '' && settings.logSent) {
         const sessionId = session?.id ?? session?.sessionId ?? 'unknown'
@@ -379,7 +452,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.3.2', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.4.0', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 

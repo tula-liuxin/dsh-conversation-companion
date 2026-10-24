@@ -120,12 +120,12 @@ window.__ModuleLoader__.load({
         drag.current = null
         try { localStorage.setItem(NS + '.panel-position', JSON.stringify(position)) } catch {}
       }
-      const hint = view?.status === 'pending' ? '正在生成摘要…' : view?.status === 'error' ? '生成失败：' + view.error : '这条回复尚无摘要；下一次回复结束后会自动生成。'
+      const hint = view?.status === 'error' ? '生成失败：' + view.error : view?.status === 'pending' || view?.summaryPending ? '正在生成摘要…' : '这条回复尚无摘要；下一次回复结束后会自动生成。'
       return h(React.Fragment, null,
         h('style', null, '.pc-summary-window::backdrop{background:transparent;pointer-events:none}'),
         h('div', { ref: panel, popover: 'manual', className: 'pc-summary-window', style: { ...CSS.panel, left: position.x, top: position.y, width: 'min(960px, calc(100vw - 24px))', height: 'min(620px, calc(100vh - 90px))' }, role: 'dialog', 'aria-modal': false, 'aria-label': '人话摘要', onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } } },
           h('div', { style: { ...CSS.row, cursor: 'move', touchAction: 'none', userSelect: 'none', flexShrink: 0 }, onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: stopDrag, onPointerCancel: stopDrag }, h('strong', null, '这条回复，用大白话说'), h('button', { style: CSS.btn, onClick: onClose }, '关闭')),
-          view?.status === 'ready' || view?.summary ? h('textarea', { style: CSS.body, value: text, 'aria-label': '编辑摘要', onChange: (e) => { setText(e.target.value); writeEdit(sessionId, at, e.target.value) } }) : h('div', { style: CSS.hint, role: 'status' }, hint),
+          view?.summary ? h('textarea', { style: CSS.body, value: text, 'aria-label': '编辑摘要', onChange: (e) => { setText(e.target.value); writeEdit(sessionId, at, e.target.value) } }) : h('div', { style: CSS.hint, role: 'status' }, hint),
           h('div', { style: CSS.row }, h('span', { style: CSS.hint }, notice || '拖动标题栏移动 · 右下角调整大小 · 编辑自动保存'), h('button', { style: CSS.btn, disabled: !text, onClick: async () => {
             try { await navigator.clipboard.writeText(text); setNotice('已复制') } catch { setNotice('复制失败，请选中文字复制') }
           } }, '复制'))))
