@@ -2,7 +2,13 @@
 
 Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also upgraded and version-checked at 0.2.1-rc.3.
 
-## 0.5.0-beta.2 update validation
+## 0.5.0-beta.3 update validation
+
+- Installed beta.3 with the bundled Desktop CLI and restarted Desktop.
+- Actual demo UI: default first candidate only; single Tab expands three with an empty draft; Down selects the second; Enter fills that candidate into the draft. The Send button remains available and conversation remains at one turn: adoption did not send.
+- Four Node tests and syntax checks pass, including Enter event suppression, modifier/IME/repeat guards and preserving existing drafts.
+
+## 0.5.0-beta.2 update validation (historical)
 
 - Installed the beta.2 tarball over beta.1 using the bundled Desktop CLI; installer exited 0. Restarted the actual Desktop application.
 - Actual UI in the existing demo conversation: first candidate only by default; two rapid Tab presses expand three candidates without adopting; Down expands only the second candidate body; Tab inserts the second candidate into the draft without sending.
