@@ -15,7 +15,7 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  const render=()=>{cleanup.forEach(f=>f?.());effects=[];cursor=0;tree=slots.get('copilot-ghost')(props());cleanup=effects.map(f=>f());const list=all(tree,n=>n.props.role==='listbox')[0];if(list)list.props.ref.current={contains:()=>false,closest:()=>card};return tree};
  const count=()=>all(tree,n=>n.props.role==='option').length;
  const key=(key,extra={})=>listeners.get('keydown')?.({key,target:editor,preventDefault(){},stopPropagation(){},...extra});
- render();assert.equal(count(),1);key('ArrowRight');assert.equal(inserted.length,0);render();assert.equal(count(),3);
+ render();assert.equal(count(),1);key('ArrowDown');assert.equal(inserted.length,0);render();assert.equal(count(),3);
  key('Escape');render();assert.equal(count(),1);assert.equal(inserted.length,0);key('ArrowRight');render();assert.equal(count(),3);
  key('ArrowDown');render();let prevented=false,stopped=false;
  key('Tab',{preventDefault(){prevented=true},stopImmediatePropagation(){stopped=true}});

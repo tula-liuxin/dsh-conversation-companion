@@ -2,7 +2,7 @@
 
 让 AI 帮你想下一句，也把长回复讲明白。
 
-[English](README.en.md) · MIT · 0.6.0-beta.1
+[English](README.en.md) · MIT · 0.6.0-beta.2
 
 这是 DeepSeek Harness 的第三方插件，不适用于普通 DeepSeek 网页聊天。
 
@@ -11,7 +11,7 @@
 - 回复结束后生成最多三个简短的下一句建议，有用优先，不强行凑数。
 - ↑ / ↓ 选择，选中项展开全文，Tab 填入草稿；仍由你决定是否发送。
 - 展开后按 → 重新生成一组（会额外调用模型），按 ← 查看旧组；生成中或失败时保留旧建议。每轮回复的候选历史独立保存。
-- 默认只显示第一条。按 → 展开全部候选；Tab 填入选中项，不发送。展开后按 Esc 或点击“收起”回到第一条。
+- 默认只显示第一条。按 ↓ 或 → 展开全部候选；Tab 填入选中项，不发送。展开后按 Esc 或点击“收起”回到第一条。
 - ✨ 打开通俗摘要；浮窗可拖动、缩放、编辑，不妨碍操作外面的对话。
 - 参考近期说话方式，尽量避免扩写需求；AI 仍可能理解偏差，请先看再采用。
 
@@ -31,10 +31,10 @@ macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不
 2. 在 PowerShell 使用桌面版自带的命令安装；下面适用于默认安装路径，修改 tgz 路径为你的下载位置：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.6.0-beta.1.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.6.0-beta.2.tgz"
 ```
 
-3. 重新打开 DSH，插件页应显示“对话助手”及 `0.6.0-beta.1`。
+3. 重新打开 DSH，插件页应显示“对话助手”及 `0.6.0-beta.2`。
 
 注意：npm 安装的普通 `dsh` CLI 与桌面版自带 CLI 不同；普通 CLI 不允许管理保留的 `desktop` profile。不要直接用 PATH 中来源不明的 `dsh plugin --profile desktop`。界面安装也可在 DSH 中让 Creator 安装解压后包含 `package.json` 的本地 bundle 目录，通过 DSH 安装确认流程完成。
 
@@ -46,7 +46,7 @@ macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不
 
 1. 正常发送一条消息，等待 AI 回复及插件额外生成结束。
 2. 空输入框里出现建议，↑ / ↓ 或鼠标选一个，Tab 填入后可修改，再自行发送。
-3. 展开后按 Esc 回到第一条；按 → 查看更多。Shift+Tab、输入法组合和已有草稿不拦截。
+3. 展开后按 Esc 回到第一条；按 ↓ 或 → 查看更多。Shift+Tab、输入法组合和已有草稿不拦截。
 4. 点 ✨ 查看摘要；失败时摘要窗口显示错误。检查模型服务后，下一轮回复会重新尝试。
 
 ## 模型用量与数据
