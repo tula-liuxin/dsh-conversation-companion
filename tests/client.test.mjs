@@ -5,14 +5,15 @@ import vm from 'node:vm';
 test('compact default, Right expansion, regeneration, history and scope guards',async()=>{
  let plugin,effects=[],cleanup=[],states=[],cursor=0,tree;let requests=0;const slots=new Map(),listeners=new Map(),timers=new Map();let nextTimer=0;
  const R={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props??{},children:children.flat()}),useMemo:f=>f(),useRef:()=>({current:null}),useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],x=>states[i]=typeof x==='function'?x(states[i]):x]},useEffect:f=>effects.push(f),useSyncExternalStore:(_s,g)=>g()};
+ const storage=new Map(); const localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
  const window={__ModuleLoader__:{load:x=>plugin=x.factory(()=>R)},addEventListener:(n,f)=>listeners.set(n,f),removeEventListener:n=>listeners.delete(n)};
- vm.runInNewContext(fs.readFileSync(new URL('../client.js',import.meta.url),'utf8'),{window,setTimeout:f=>{timers.set(++nextTimer,f);return nextTimer},clearTimeout:id=>timers.delete(id)});
+ vm.runInNewContext(fs.readFileSync(new URL('../client.js',import.meta.url),'utf8'),{window,localStorage,setTimeout:f=>{timers.set(++nextTimer,f);return nextTimer},clearTimeout:id=>timers.delete(id)});
  plugin.apply({remote:{commands:{execute:async()=>{requests++;return {ok:true,value:{result:{kind:'success'}}}}}},slots:{inject:(_n,f)=>f(),register:({id},c)=>slots.set(id,c)}});
  let inserted=[],draft='',at=1,sessionId='a',history;const view=()=>({at,sourceSeq:at,batches:history,next:['第一条','第二条','第三条'],titles:['一','二','三']});
  const props=()=>({sessionId,useProjection:view,useInput:f=>f({draft}),useSession:f=>f({running:false}),inputActions:{setDraft:t=>inserted.push(t),persistDraft(){}}});
  function all(n,pred){if(!n||typeof n!=='object')return [];return [...(pred(n)?[n]:[]),...n.children.flatMap(c=>all(c,pred))]}
  const card={querySelector:()=>null},editor={isContentEditable:true,closest:()=>card};
- const render=()=>{cleanup.forEach(f=>f?.());effects=[];cursor=0;tree=slots.get('copilot-ghost')(props());cleanup=effects.map(f=>f());const list=all(tree,n=>n.props.role==='listbox')[0];if(list)list.props.ref.current={contains:()=>false,closest:()=>card};return tree};
+ const render=()=>{cleanup.forEach(f=>f?.());effects=[];cursor=0;tree=slots.get('copilot-ghost')(props());cleanup=effects.map(f=>f());const list=all(tree,n=>n.props.role==='listbox')[0];if(list)list.props.ref.current={contains:()=>false,closest:()=>card};if(tree.props.hidden)tree.props.ref.current={closest:()=>card};return tree};
  const count=()=>all(tree,n=>n.props.role==='option').length;
  const key=(key,extra={})=>listeners.get('keydown')?.({key,target:editor,preventDefault(){},stopPropagation(){},...extra});
  render();assert.equal(count(),1);key('ArrowDown');assert.equal(inserted.length,0);render();assert.equal(count(),3);
@@ -34,5 +35,16 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  key('ArrowRight');render();await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,1);assert.ok(JSON.stringify(tree).includes('新组'));
  key('ArrowRight');await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,2);
 
+ key('Escape');render();assert.equal(count(),1);
+ key('Escape');render();assert.equal(count(),0);assert.equal(localStorage.getItem('pc.v1.predictions-hidden'),'true');
+ key('ArrowRight');key('ArrowDown');render();assert.equal(count(),0);
+ sessionId='another';at++;render();assert.equal(count(),0);
+ draft='keep';render();key('Tab');assert.equal(localStorage.getItem('pc.v1.predictions-hidden'),'true');
+ draft='';render();const before=inserted.length;key('Tab',{shiftKey:true});render();assert.equal(count(),0);
+ key('Tab');render();assert.equal(count(),1);assert.equal(inserted.length,before);assert.equal(localStorage.getItem('pc.v1.predictions-hidden'),'false');
+ key('Escape');render();assert.equal(count(),0);
+ cleanup.forEach(f=>f?.());
+ plugin.apply({slots:{inject:(_n,f)=>f(),register:({id},c)=>slots.set(id,c)}});
+ states=[];render();assert.equal(count(),0);key('Tab');render();assert.equal(count(),1);
  cleanup.forEach(f=>f?.());
 });

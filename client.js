@@ -136,6 +136,13 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         let current = { sessionId: null, view: null, open: false }
         const listeners = new Set()
+        let predictionsHidden = false
+        try { predictionsHidden = localStorage.getItem(NS + '.predictions-hidden') === 'true' } catch {}
+        const setPredictionsHidden = hidden => {
+          predictionsHidden = hidden
+          try { localStorage.setItem(NS + '.predictions-hidden', String(hidden)) } catch {}
+          publish({})
+        }
         // Expansion belongs only to the current prediction batch; new batches are compact.
         const expandedBatches = new Map()
         const batchKey = (view) => String(view?.sourceSeq ?? view?.at ?? '')
@@ -182,7 +189,7 @@ window.__ModuleLoader__.load({
           const expanded = isExpanded(props.sessionId, view)
           const index = expanded ? Math.min(selected, Math.max(0, options.length - 1)) : 0
           const text = options[index]?.prompt ?? ''
-          const available = options.length > 0 && !draft && !running
+          const available = options.length > 0 && !draft && !running && !predictionsHidden
           useEffect(() => { setSelected(0) }, [props.sessionId, view?.at])
           useEffect(() => {
             if (current.sessionId === props.sessionId) publish({ view })
@@ -197,6 +204,7 @@ window.__ModuleLoader__.load({
           const dismiss = () => {
             const editor = list.current?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')
             setSelected(0)
+            if (!expanded) setPredictionsHidden(true)
             setExpanded(props.sessionId, view, false)
             editor?.focus({ preventScroll: true })
           }
@@ -254,12 +262,26 @@ window.__ModuleLoader__.load({
             window.addEventListener('keydown', onKey, true)
             return () => window.removeEventListener('keydown', onKey, true)
           }, [available, expanded, text, options.length, props.inputActions, props.sessionId, view, live, page, batches])
+          useEffect(() => {
+            if (!predictionsHidden || draft || running) return
+            const reopen = event => {
+              if (event.key !== 'Tab' || event.repeat || event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+              const card = anchor.current?.closest('[data-composer-card]')
+              if (!card || !event.target?.isContentEditable || event.target.closest('[data-composer-card]') !== card) return
+              event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
+              expandedBatches.clear()
+              setSelected(0)
+              setPredictionsHidden(false)
+            }
+            window.addEventListener('keydown', reopen, true)
+            return () => window.removeEventListener('keydown', reopen, true)
+          }, [predictionsHidden, draft, running, props.sessionId])
           if (!available) return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
           return h(React.Fragment, null,
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
             h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头或右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : '换一组') + ' · Tab 采用' : '↓ / → 更多 · Tab 采用'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : '换一组') + ' · Tab 采用' : '↓ / → 更多 · Tab 采用 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
               live?.status === 'pending' ? h('div', { role: 'status', style: { fontSize: 12 } }, '正在生成新的一组，旧建议仍可查看…') : null,
               (requestError || live?.error) ? h('div', { role: 'status', style: { fontSize: 12, color: '#b42318' } }, requestError || live.error) : null,
               ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
