@@ -417,12 +417,18 @@ window.__ModuleLoader__.load({
             offset = edit.end
           }
           chunks.push(draft.slice(offset))
+          const reason = result.mode === 'deep' ? [...new Set((result.edits ?? []).map(e => e.reason).filter(Boolean))].join('；') : ''
+          const reasonId = 'pc-review-reason-' + props.sessionId
           const smallButton = { ...CSS.btn, fontSize: 11, padding: '2px 6px', border: 'none', borderRadius: 4 }
           return h('section', { ref: anchor, className: 'pc-draft-review', 'aria-label': '输入纠错建议', style: { position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 6, padding: '7px 10px', fontSize: 12, lineHeight: 1.5, border: '1px solid var(--dsw-alias-border-subtle, #ddd)', borderRadius: 9, background: 'var(--dsw-alias-bg-elevated, #fff)', color: 'var(--dsw-alias-text-primary, #222)', boxShadow: '0 2px 10px #0001', pointerEvents: 'auto', zIndex: 4 } },
-            h('div', { style: CSS.row }, h('span', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #777)' } }, result.pending ? (result.mode === 'deep' ? '正在深度改写…' : '正在检查输入…') : result.clean ? (result.mode === 'deep' ? '暂无进一步改写建议' : '未发现明显笔误') : result.error ? '输入检查' : result.mode === 'deep' ? '深度改写 · 可能调整意图' : '建议修改 · 红删绿增'),
+            h('style', null, '.pc-review-reason-tip{visibility:hidden;opacity:0;pointer-events:none}.pc-review-reason:hover .pc-review-reason-tip,.pc-review-reason:focus-within .pc-review-reason-tip{visibility:visible;opacity:1;pointer-events:auto}'),
+            h('div', { style: CSS.row }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 5 } }, h('span', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #777)' } }, result.pending ? (result.mode === 'deep' ? '正在深度改写…' : '正在检查输入…') : result.clean ? (result.mode === 'deep' ? '暂无进一步改写建议' : '未发现明显笔误') : result.error ? '输入检查' : result.mode === 'deep' ? '深度改写 · 可能调整意图' : '建议修改 · 红删绿增'),
+              reason ? h('span', { className: 'pc-review-reason', style: { display: 'inline-flex', alignItems: 'center' } },
+                h('button', { type: 'button', 'aria-label': '查看改写理由', 'aria-describedby': reasonId, style: { ...smallButton, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, padding: 0, color: 'var(--dsw-alias-text-secondary, #777)' } },
+                  h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', 'aria-hidden': true }, h('circle', { cx: 8, cy: 8, r: 6.25 }), h('path', { d: 'M8 7v4M8 4.5v1', strokeWidth: 1.4 }))),
+                h('span', { id: reasonId, role: 'tooltip', className: 'pc-review-reason-tip', style: { position: 'absolute', bottom: '100%', left: 0, width: 'min(460px, 100%)', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--dsw-alias-border-subtle, #ddd)', background: 'var(--dsw-alias-bg-elevated, #fff)', color: 'var(--dsw-alias-text-secondary, #777)', fontSize: 11, lineHeight: 1.6, overflowWrap: 'anywhere', maxHeight: 'min(220px, 35vh)', overflowY: 'auto', boxShadow: '0 3px 12px #0002', zIndex: 5 } }, reason)) : null),
               h('span', null, result.edits?.length ? h('button', { style: smallButton, onClick: accept, onMouseDown: e => e.preventDefault() }, '采用 · Tab') : null,
                 h('button', { style: smallButton, onClick: dismiss, onMouseDown: e => e.preventDefault() }, '关闭 · Esc'))),
-            result.mode === 'deep' && result.edits?.length ? h('div', { style: { ...CSS.hint, fontSize: 11, marginTop: 3 } }, [...new Set(result.edits.map(e => e.reason).filter(Boolean))].join('；')) : null,
             result.error ? h('div', { role: 'status', style: CSS.hint }, result.error) : result.edits?.length ? h('div', { style: { marginTop: 4, maxHeight: 'min(180px, 25vh)', overflowY: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5, fontSize: 12 } }, ...chunks) : null)
         }
         function SummaryButton(props) {
