@@ -17,3 +17,15 @@ test('history survives pending, failure and replay and resets on a new reply', (
  assert.equal(foldPrediction(state,{type:'assistant/message'}),null);
  assert.equal(foldPrediction(state,event({...first,sourceSeq:9})).batches.length,1);
 });
+
+test('legacy missing titles and pending state are lossless JSON', () => {
+ const event = data => ({type:'plugin:prompt-copilot/turn',data});
+ const legacy = {status:'ready',sourceSeq:1,at:1,next:['legacy'],summary:'summary'};
+ let state = foldPrediction(null,event(legacy));
+ const check = () => assert.deepEqual(JSON.parse(JSON.stringify(state)),state);
+ check();assert.deepEqual(state.batches[0].titles,[]);
+ state=foldPrediction(state,event({status:'pending',sourceSeq:1}));check();assert.equal(Object.hasOwn(state,'error'),false);
+ state=foldPrediction(state,event({status:'error',sourceSeq:1,error:'offline'}));check();
+ state=foldPrediction(state,event({status:'pending',sourceSeq:1}));check();assert.equal(Object.hasOwn(state,'error'),false);
+ state=foldPrediction(state,event({...legacy,at:2,titles:['new']}));check();assert.equal(state.batches.length,2);
+});

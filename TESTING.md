@@ -2,6 +2,11 @@
 
 Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also upgraded and version-checked at 0.2.1-rc.3.
 
+## 0.6.0-beta.4 validation
+
+- Six Node tests and syntax checks pass, including lossless JSON round-trips for legacy candidates without titles and pending/error transitions.
+- Replayed the affected local session against the actual DSH isRemoteJsonValue validator: the old code failed on batches[0].titles and pending.error; the fix passes without modifying the session log.
+
 ## 0.6.0-beta.1 validation
 
 - Five Node tests pass: keyboard/history navigation and remote dispatch, immutable projection history across pending/failure/replay, plus prior core checks.

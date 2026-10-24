@@ -167,12 +167,15 @@ export function foldPrediction(state, event) {
   if (event.type !== 'plugin:prompt-copilot/turn') return state
   const data = event.data
   const previous = state?.sourceSeq === data.sourceSeq ? state : null
-  const batches = previous?.batches ?? (previous?.next?.length ? [{ at: previous.at, next: previous.next, titles: previous.titles, summary: previous.summary }] : [])
+  const toBatch = value => ({ at: value.at, next: value.next ?? [], titles: value.titles ?? [], summary: value.summary ?? '' })
+  const batches = previous?.batches ?? (previous?.next?.length ? [toBatch(previous)] : [])
   if (data.status === 'ready') {
-    const batch = { at: data.at, next: data.next, titles: data.titles, summary: data.summary }
+    const batch = toBatch(data)
     return { ...data, batches: batches.some(b => b.at === data.at) ? batches : [...batches, batch] }
   }
-  return previous ? { ...previous, status: data.status, error: data.error } : data
+  if (!previous) return data
+  const { error: oldError, ...retained } = previous
+  return { ...retained, status: data.status, ...(typeof data.error === 'string' ? { error: data.error } : {}) }
 }
 
 export function apply(ctx, config) {
@@ -208,7 +211,7 @@ export function apply(ctx, config) {
   ctx.sessionProjections.register({
     key: 'prompt-copilot',
     stateSchema: passthrough,
-    stateVersion: 3,
+    stateVersion: 4,
     init: () => null,
     apply: foldPrediction,
     wire: { viewSchema: passthrough, view: (state) => state },
@@ -224,7 +227,10 @@ export function apply(ctx, config) {
     if (eventsOf(session).some((event) => event.type === 'user/message' && isUserMessage(event.data) && event.time > row.at)) return
     const existing = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
     if (existing?.at >= row.at) {
-      if (existing.status === 'pending' && existing.next?.length) await publish(session, { ...existing, status: 'ready', error: undefined })
+      if (existing.status === 'pending' && existing.next?.length) {
+        const { error, ...retained } = existing
+        await publish(session, { ...retained, status: 'ready' })
+      }
       lastPrediction.set(session.id, existing)
       if (existing.status === 'ready' && (existing.titles?.length !== existing.next?.length || existing.promptStyleVersion !== 1)) await generate(session, reply.data.turn)
       return
@@ -322,7 +328,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.6.0-beta.3', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.6.0-beta.4', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 
