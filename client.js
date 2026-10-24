@@ -290,6 +290,141 @@ window.__ModuleLoader__.load({
                 h('div', { style: { fontWeight: i === index ? 600 : 400, lineHeight: '20px', overflowWrap: 'anywhere' } }, (i + 1) + '. ' + option.title),
                 i === index ? h('div', { style: { marginTop: 5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.6, fontWeight: 400 } }, option.prompt) : null))))
         }
+        function DraftReview(props) {
+          const draft = props.useInput(input => input?.draft ?? '')
+          const running = props.useSession(session => session?.running ?? false)
+          const [result, setResult] = useState(null)
+          const anchor = useRef(null)
+          const tracker = useRef({ sessionId: props.sessionId, text: draft, checked: draft, added: 0, revision: 0 })
+          const latest = useRef(null)
+          const composing = useRef(false)
+          const manualTimer = useRef(null)
+          const autoTimer = useRef(null)
+          latest.current = { draft, sessionId: props.sessionId, running }
+          useEffect(() => {
+            const belongs = e => e.target?.closest?.('[data-composer-card]') === anchor.current?.closest('[data-composer-card]')
+            const start = e => { if (belongs(e)) composing.current = true }
+            const end = e => { if (belongs(e)) composing.current = false }
+            window.addEventListener('compositionstart', start, true)
+            window.addEventListener('compositionend', end, true)
+            return () => { window.removeEventListener('compositionstart', start, true); window.removeEventListener('compositionend', end, true) }
+          }, [])
+          useEffect(() => () => {
+            tracker.current.revision++
+            clearTimeout(manualTimer.current); manualTimer.current = null
+            clearTimeout(autoTimer.current)
+          }, [draft, props.sessionId, running])
+          const checkDraft = async (mode = 'basic') => {
+            const state = tracker.current
+            if (latest.current.draft !== draft || latest.current.sessionId !== props.sessionId || latest.current.running || composing.current || !draft.trim()) return
+            const revision = ++state.revision
+            state.added = 0; state.checked = draft
+            const base = { draft, sessionId: props.sessionId, mode }
+            if (draft.length > 12000) { setResult({ ...base, error: '输入超过 12000 字符，暂不检查' }); return }
+            setResult({ ...base, pending: true })
+            try {
+              const response = await ctx.remote.commands.execute(props.sessionId, '/companion-review ' + JSON.stringify({ draft, mode }), [])
+              if (!response.ok || response.value?.result?.kind !== 'success') throw new Error(response.value?.result?.text || '暂时无法检查输入')
+              const { edits } = JSON.parse(response.value.result.text)
+              if (!Array.isArray(edits)) throw new Error('纠错结果无效')
+              if (tracker.current !== state || state.revision !== revision || latest.current.draft !== draft || latest.current.sessionId !== props.sessionId || latest.current.running) return
+              setResult(edits.length ? { ...base, edits } : { ...base, clean: true })
+            } catch (error) {
+              if (tracker.current === state && state.revision === revision) setResult({ ...base, error: error.message })
+            }
+          }
+
+          useEffect(() => {
+            let state = tracker.current
+            if (state.sessionId !== props.sessionId) state = tracker.current = { sessionId: props.sessionId, text: draft, checked: draft, added: 0, revision: state.revision + 1 }
+            const old = Array.from(state.text), next = Array.from(draft)
+            let prefix = 0, suffix = 0
+            while (prefix < old.length && prefix < next.length && old[prefix] === next[prefix]) prefix++
+            while (suffix < old.length-prefix && suffix < next.length-prefix && old[old.length-1-suffix] === next[next.length-1-suffix]) suffix++
+            state.added += next.slice(prefix, next.length-suffix).filter(c => !/\s/u.test(c)).length
+            state.text = draft
+            const revision = ++state.revision
+            setResult(null)
+            if (!draft) { state.added = 0; state.checked = '' }
+            if (running || !draft.trim() || draft.trim() === state.checked.trim()) return
+            const check = () => {
+              if (state.revision !== revision) return
+              if (composing.current) { autoTimer.current = setTimeout(check, 300); return }
+              void checkDraft()
+            }
+            autoTimer.current = setTimeout(check, state.added >= 60 ? 5000 : 15000)
+            return () => clearTimeout(autoTimer.current)
+          }, [draft, props.sessionId, running])
+
+          useEffect(() => {
+            if (!result?.clean) return
+            const timer = setTimeout(() => setResult(null), 2500)
+            return () => clearTimeout(timer)
+          }, [result])
+          const visible = result && result.draft === draft && result.sessionId === props.sessionId && !running
+          const dismiss = () => { tracker.current.revision++; clearTimeout(manualTimer.current); manualTimer.current = null; clearTimeout(autoTimer.current); setResult(null) }
+          const accept = () => {
+            if (!visible || !result.edits?.length || latest.current.draft !== result.draft) return
+            let text = draft
+            for (const edit of [...result.edits].reverse()) text = text.slice(0, edit.start) + edit.after + text.slice(edit.end)
+            tracker.current.text = text; tracker.current.checked = text; tracker.current.added = 0
+            dismiss()
+            props.inputActions.setDraft(text); props.inputActions.persistDraft()
+            anchor.current?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')?.focus({ preventScroll: true })
+          }
+          useEffect(() => {
+            const onKey = event => {
+              if (event.repeat || event.isComposing || composing.current || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return
+              const card = anchor.current?.closest('[data-composer-card]')
+              if (!card || !(anchor.current?.contains(event.target) || (event.target?.isContentEditable && event.target.closest('[data-composer-card]') === card))) return
+              if (event.key === 'Tab' && event.shiftKey && draft.trim() && !running) {
+                event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
+                clearTimeout(autoTimer.current)
+                tracker.current.revision++
+                setResult(null)
+                if (manualTimer.current !== null) {
+                  clearTimeout(manualTimer.current); manualTimer.current = null
+                  void checkDraft('deep')
+                } else {
+                  manualTimer.current = setTimeout(() => { manualTimer.current = null; void checkDraft('basic') }, 450)
+                }
+                return
+              }
+              if (event.shiftKey) return
+              if (event.key === 'Escape' && manualTimer.current !== null) {
+                event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); dismiss(); return
+              }
+              if (!visible || (event.key !== 'Escape' && !(event.key === 'Tab' && result.edits?.length))) return
+              event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
+              if (event.key === 'Escape') dismiss(); else accept()
+            }
+            window.addEventListener('keydown', onKey, true)
+            return () => window.removeEventListener('keydown', onKey, true)
+          }, [visible, result, draft, props.inputActions, props.sessionId, running])
+          if (!visible) return h('span', { ref: anchor, hidden: true })
+          const chunks = []
+          let offset = 0
+          for (const edit of result.edits ?? []) {
+            chunks.push(draft.slice(offset, edit.start))
+            // Trim shared context so only the actual changed characters are colored.
+            let a = 0, b = 0
+            while (a < edit.before.length && a < edit.after.length && edit.before[a] === edit.after[a]) a++
+            while (b < edit.before.length-a && b < edit.after.length-a && edit.before.at(-1-b) === edit.after.at(-1-b)) b++
+            chunks.push(edit.before.slice(0,a))
+            chunks.push(h('del', { title: edit.reason, style: { color: '#b42318', background: '#fee4e2' } }, edit.before.slice(a,edit.before.length-b)))
+            chunks.push(h('ins', { title: edit.reason, style: { color: '#067647', background: '#dcfae6', textDecoration: 'underline' } }, edit.after.slice(a,edit.after.length-b)))
+            chunks.push(b ? edit.before.slice(-b) : '')
+            offset = edit.end
+          }
+          chunks.push(draft.slice(offset))
+          const smallButton = { ...CSS.btn, fontSize: 11, padding: '2px 6px', border: 'none', borderRadius: 4 }
+          return h('section', { ref: anchor, className: 'pc-draft-review', 'aria-label': '输入纠错建议', style: { position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 6, padding: '7px 10px', fontSize: 12, lineHeight: 1.5, border: '1px solid var(--dsw-alias-border-subtle, #ddd)', borderRadius: 9, background: 'var(--dsw-alias-bg-elevated, #fff)', color: 'var(--dsw-alias-text-primary, #222)', boxShadow: '0 2px 10px #0001', pointerEvents: 'auto', zIndex: 4 } },
+            h('div', { style: CSS.row }, h('span', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #777)' } }, result.pending ? (result.mode === 'deep' ? '正在深度改写…' : '正在检查输入…') : result.clean ? (result.mode === 'deep' ? '暂无进一步改写建议' : '未发现明显笔误') : result.error ? '输入检查' : result.mode === 'deep' ? '深度改写 · 可能调整意图' : '建议修改 · 红删绿增'),
+              h('span', null, result.edits?.length ? h('button', { style: smallButton, onClick: accept, onMouseDown: e => e.preventDefault() }, '采用 · Tab') : null,
+                h('button', { style: smallButton, onClick: dismiss, onMouseDown: e => e.preventDefault() }, '关闭 · Esc'))),
+            result.mode === 'deep' && result.edits?.length ? h('div', { style: { ...CSS.hint, fontSize: 11, marginTop: 3 } }, [...new Set(result.edits.map(e => e.reason).filter(Boolean))].join('；')) : null,
+            result.error ? h('div', { role: 'status', style: CSS.hint }, result.error) : result.edits?.length ? h('div', { style: { marginTop: 4, maxHeight: 'min(180px, 25vh)', overflowY: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5, fontSize: 12 } }, ...chunks) : null)
+        }
         function SummaryButton(props) {
           const view = props.useProjection(KEY)
           return h('button', { type: 'button', style: CSS.wand, title: '人话摘要', 'aria-label': '人话摘要', onClick: () => openDialog(props.sessionId, view) }, '✨')
@@ -302,6 +437,7 @@ window.__ModuleLoader__.load({
         // Depend on the actual child declaration, not its parent before children exist.
         // sessionId/useProjection/useInput/inputActions are standard slot props.
         ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({ name: 'conversation.input.overlay', id: 'copilot-ghost', order: 5 }, Suggestions))
+        ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({ name: 'conversation.input.overlay', id: 'copilot-review', order: 6 }, DraftReview))
         ctx.slots.inject('conversation.input.left', () => ctx.slots.register({ name: 'conversation.input.left', id: 'copilot-wand', order: 5 }, SummaryButton))
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'copilot-dialog' }, Overlay))
       },

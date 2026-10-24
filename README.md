@@ -2,7 +2,7 @@
 
 让 AI 帮你想下一句，也把长回复讲明白。
 
-[English](README.en.md) · MIT · 0.1.0
+[English](README.en.md) · MIT · 0.3.0
 
 这是 DeepSeek Harness 的第三方插件，不适用于普通 DeepSeek 网页聊天。
 
@@ -17,7 +17,7 @@
 
 ## 兼容性
 
-首版锁定 DeepSeek Harness **0.2.1-rc.3**，以 Windows Desktop 为验证环境。
+首版锁定 DeepSeek Harness **0.3.0-rc.3**，以 Windows Desktop 为验证环境。
 macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不承诺支持。
 摘要只在 DSH 页面内置顶，不是跨应用系统置顶窗口。当前界面和生成指令以中文为主。
 
@@ -31,14 +31,14 @@ macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不
 2. 在 PowerShell 使用桌面版自带的命令安装；下面适用于默认安装路径，修改 tgz 路径为你的下载位置：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.1.0.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.3.0.tgz"
 ```
 
-3. 重新打开 DSH，插件页应显示“对话助手”及 `0.1.0`。
+3. 重新打开 DSH，插件页应显示“对话助手”及 `0.3.0`。
 
 注意：npm 安装的普通 `dsh` CLI 与桌面版自带 CLI 不同；普通 CLI 不允许管理保留的 `desktop` profile。不要直接用 PATH 中来源不明的 `dsh plugin --profile desktop`。界面安装也可在 DSH 中让 Creator 安装解压后包含 `package.json` 的本地 bundle 目录，通过 DSH 安装确认流程完成。
 
-官方 npm 截至本次验证：`latest` 为 rc.2，`next` 为 rc.3。如需单独更新普通命令行，使用 `npm install -g @deepseek-ai/dsh@0.2.1-rc.3`；这不替代上述桌面安装命令。
+官方 npm 截至本次验证：`latest` 为 rc.2，`next` 为 rc.3。如需单独更新普通命令行，使用 `npm install -g @deepseek-ai/dsh@0.3.0-rc.3`；这不替代上述桌面安装命令。
 
 如之前装过开发版 `@local/prompt-copilot`，先在插件页移除旧版，再安装此版本；不要同时启用两个版本。旧摘要和本地缓存不会自动删除。
 
@@ -87,3 +87,11 @@ npm pack
 验收范围与结果见 [TESTING.md](TESTING.md)。
 
 单条状态按 Esc 会完全隐藏预测；隐藏状态保存在本机，跨会话和重启有效。隐藏后，在空输入框按 Tab 恢复单条（这次不会采用）。已有草稿时保留原生 Tab 行为。
+
+## 输入纠错 / Draft correction
+
+自上次检查起新增至少 60 个非空白字符时，停顿 5 秒后检查；不足 60 字但草稿有变化（含删除）时，停顿 15 秒后检查。继续编辑会重新计时，同一草稿不重复检查，采用后的文字不触发自检；粘贴长文合并为一次。输入框上方红色删除线表示删除，绿色下划线表示新增。Tab 采用全部建议（不发送），Esc 关闭本次提示；继续编辑后才可再次触发。继续编辑即丢弃旧建议，不覆盖新输入。仅修明显笔误、重复漏词和能确定原意的歧义；不润色、不扩写需求。超过 12000 字符暂不检查。会产生额外模型调用。
+
+### 主动检查
+
+输入框中 Shift+Tab 主动执行保守纠错，不受60字门槛或同文去重限制。按住 Shift 在450ms内连按两次 Tab，执行一次深度改写（不会先发保守检查）。深度改写参考近期对话，可重构表达、调整意图和解题方向，并显示理由；仍需 Tab 采用，Esc 关闭。自动检查始终保守。空草稿、输入法组合中、模型回复运行中不触发。

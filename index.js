@@ -13,6 +13,7 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { createDb } from './db.js'
+import { REVIEW_SYSTEM, DEEP_REVIEW_SYSTEM, validateEdits } from './review.js'
 
 export const name = 'prompt-copilot'
 export const inject = ['llm', 'sessionProjections', 'sessions', 'commands']
@@ -120,13 +121,13 @@ export function normalize(parsed, count = 3) {
   return { summary, next, titles }
 }
 
-async function streamCompletion(ctx, settings, prompt, signal) {
+async function streamCompletion(ctx, settings, prompt, signal, system = SYSTEM) {
   let text = ''
   const stream = ctx.llm.stream({
     provider: settings.provider,
     model: settings.model,
     messages: [
-      { role: 'system', content: [{ type: 'text', text: SYSTEM }] },
+      { role: 'system', content: [{ type: 'text', text: system }] },
       { role: 'user', content: [{ type: 'text', text: prompt }] },
     ],
     signal,
@@ -137,7 +138,7 @@ async function streamCompletion(ctx, settings, prompt, signal) {
   return text
 }
 
-export async function complete(ctx, settings, prompt, signal) {
+export async function complete(ctx, settings, prompt, signal, system = SYSTEM) {
   const controller = new AbortController()
   let timer, onAbort
   const interrupted = new Promise((_, reject) => {
@@ -148,7 +149,7 @@ export async function complete(ctx, settings, prompt, signal) {
   })
   try {
     if (signal.aborted) return await interrupted
-    return await Promise.race([streamCompletion(ctx, settings, prompt, controller.signal), interrupted])
+    return await Promise.race([streamCompletion(ctx, settings, prompt, controller.signal, system), interrupted])
   } finally { clearTimeout(timer); signal.removeEventListener('abort', onAbort) }
 }
 
@@ -160,6 +161,11 @@ export function validateConfig(config = {}) {
   }
   if (typeof settings.logSent !== 'boolean' || typeof settings.dbPath !== 'string') throw new Error('Invalid logging configuration')
   return settings
+}
+export async function reviewInput(ctx, settings, session, draft, mode, signal) {
+  const input = mode === 'deep' ? { draft, context: recentTurns(session, settings.maxInputChars) } : { draft }
+  const raw = await complete(ctx, settings, JSON.stringify(input), signal, mode === 'deep' ? DEEP_REVIEW_SYSTEM : REVIEW_SYSTEM)
+  return { mode, edits: validateEdits(draft, extractJson(raw), mode) }
 }
 // Keep immutable batches in the session projection, including during refresh failure.
 export function foldPrediction(state, event) {
@@ -218,6 +224,27 @@ export function apply(ctx, config) {
   })
 
   let disposed = false
+  const reviews = new Map()
+  ctx.commands.register({
+    name: 'companion-review', description: '检查输入中的明显笔误，返回局部修改建议', recordInput: false,
+    handler: async ({ agent, rawInput, signal }) => {
+      let draft, mode
+      try { ({ draft, mode = 'basic' } = JSON.parse(rawInput)) } catch { return { kind: 'error', text: '无法读取待检查输入' } }
+      if (!['basic', 'deep'].includes(mode)) return { kind: 'error', text: '未知检查模式' }
+      if (typeof draft !== 'string' || !draft.trim() || draft.length > 12000) return { kind: 'error', text: '输入需在 1–12000 字符以内' }
+      const id = agent.session.id
+      reviews.get(id)?.abort()
+      const controller = new AbortController()
+      reviews.set(id, controller)
+      const abort = () => controller.abort()
+      if (signal?.aborted) abort()
+      signal?.addEventListener('abort', abort, { once: true })
+      try {
+        return { kind: 'success', text: JSON.stringify(await reviewInput(ctx, settings, agent.session, draft, mode, controller.signal)) }
+      } catch { return { kind: 'error', text: '暂时无法检查输入，请继续编辑，下一次会重新检查' } }
+      finally { signal?.removeEventListener('abort', abort); if (reviews.get(id) === controller) reviews.delete(id) }
+    },
+  })
   async function restore(session) {
     await cacheReady
     if (disposed || running.has(session.id)) return
@@ -246,6 +273,8 @@ export function apply(ctx, config) {
 
   ctx.effect(() => () => {
     disposed = true
+    for (const controller of reviews.values()) controller.abort()
+    reviews.clear()
     for (const controller of running.values()) controller.abort()
     running.clear()
     lastPrediction.clear()
@@ -328,7 +357,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.1.0', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.3.0', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 

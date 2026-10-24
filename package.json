@@ -1,8 +1,8 @@
 {
   "name": "dsh-conversation-companion",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": false,
-  "description": "根据对话生成简短的下一句建议，并将 AI 回复整理为通俗摘要。支持候选切换、Tab 填入、临时收起，以及可拖动、可编辑的摘要浮窗。",
+  "description": "简短的下一句预测、输入笔误纠正和通俗摘要；支持键盘采用、候选历史与可编辑浮窗。",
   "type": "module",
   "exports": {
     ".": "./index.js",
@@ -20,7 +20,8 @@
     "README.en.md",
     "PRIVACY.md",
     "CHANGELOG.md",
-    "TESTING.md"
+    "TESTING.md",
+    "review.js"
   ],
   "dsh": {
     "bundle": {

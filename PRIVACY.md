@@ -12,3 +12,7 @@
 Recent conversation is sent to your configured model provider. Generated results are stored in DSH sessions and a plaintext local cache. Separate raw-user-message logging is opt-in. Summary edits stay in localStorage. Uninstalling does not erase these records.
 
 手动换一组会再次向已配置的模型服务发送近期对话及最多 30 条旧候选，以减少重复。候选历史保存在会话记录中；刷新命令也会产生宿主命令记录。
+
+输入纠错会在发送消息前，把当前草稿（最多 12000 字符）交给插件配置的模型服务检查。命令使用 recordInput:false，不记录完整草稿参数；宿主仍会保存命令完成记录，其中包含返回的局部原文、修改及原因。插件不将纠错结果另存到 JSONL 缓存。关闭单次提示不等于禁用后续检查。
+
+深度检查仅由双次 Shift+Tab 主动触发：除草稿外，还会发送近期最多8条用户/AI消息（按 maxInputChars 截取）给已配置模型。修改结果和理由仍保存在宿主命令记录。

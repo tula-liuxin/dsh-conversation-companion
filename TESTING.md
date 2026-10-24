@@ -48,3 +48,23 @@ Not tested: macOS/Linux, other DSH versions, all provider implementations, or a 
 No credentials, personal chats, account configuration or local test logs are distributed.
 
 CI template: ci.example.yml is provided as an optional example. GitHub Actions is not enabled in this initial release because the publishing OAuth token does not have workflow scope. Local tests above were actually run.
+
+## 0.2.0 输入纠错验证（2026-10-25）
+
+- 8 项 Node 测试通过：新增30字阈值、过期响应丢弃、Tab采用、Esc关闭、会话隔离、已有草稿恢复不触发；原候选和lossless JSON回归通过。
+- Windows DSH 0.2.1-rc.3 实际安装并重启，使用已登录的测试会话调用真实模型：例句两处“没”建议改成“每”，红删绿增可见；Tab只填草稿，轮次仍为1轮1步。Esc关闭后原文保持。
+- 对照否定句返回 edits:[]，无建议框；宿主命令记录确认未记录完整输入参数。模型准确性仅验证这些样例，不代表所有歧义都能判断正确。
+- 测试草稿已清空，其他会话原有草稿未修改。
+
+## 0.2.1 降频验证
+
+8 项测试通过。虚拟时钟覆盖：30字在1499ms不请求、1500ms请求；不足30字在4999ms不请求、5000ms请求；继续输入重置计时；纯删除触发慢档；未变化草稿与已采用结果不重复检查。
+
+
+## 0.2.2 桌面复验（2026-10-25）
+
+真实桌面重新加载后：长例句输入动作开始到command/run为1591ms，模型1613ms返回两处修正，Tab采用后仅改变草稿。短句“帮我解决这个问提。”输入到command/run为5100ms，模型957ms返回一处纠错。人工目视确认正文缩小且左右对齐。8项自动化测试通过，新增无错误提示2.5秒自动关闭验证。时间含输入动作开销，非精确浏览器计时。
+
+## 0.3.0 验证（2026-10-25）
+
+9项测试通过，覆盖单次450ms分流、双次仅发一次deep、Esc及编辑取消、IME/重复键/其他输入框保护、主动检查绕过同文去重、60字5秒与小修改15秒自动触发、深度模式独立提示词及近期上下文、允许整体改写并校验片段。真实桌面Shift+Tab已触发basic并返回“问提→问题”。双击手势与deep模型请求使用模拟事件/模型验证，未声称完成真实桌面双击验收。额外尝试在聊天框输入内部命令被宿主当作普通消息，测试轮次已停止，生成的临时探测文件已清理；这不属于插件快捷键调用路径。
