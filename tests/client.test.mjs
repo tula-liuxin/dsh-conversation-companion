@@ -31,6 +31,8 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  history=[{at:100,next:['旧组'],titles:['旧']},{at:200,next:['新组'],titles:['新']}];render();
  assert.ok(JSON.stringify(tree).includes('新组'));key('ArrowLeft');render();assert.ok(JSON.stringify(tree).includes('旧组'));
  key('Tab');assert.equal(inserted.at(-1),'旧组');
+ key('ArrowRight');render();await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,1);assert.ok(JSON.stringify(tree).includes('新组'));
+ key('ArrowRight');await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,2);
 
  cleanup.forEach(f=>f?.());
 });

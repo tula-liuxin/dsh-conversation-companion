@@ -1,6 +1,6 @@
 {
   "name": "dsh-conversation-companion",
-  "version": "0.6.0-beta.2",
+  "version": "0.6.0-beta.3",
   "private": false,
   "description": "根据对话生成简短的下一句建议，并将 AI 回复整理为通俗摘要。支持候选切换、Tab 填入、临时收起，以及可拖动、可编辑的摘要浮窗。",
   "type": "module",

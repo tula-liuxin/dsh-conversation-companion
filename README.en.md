@@ -2,12 +2,12 @@
 
 Concise next-message suggestions and plain-language summaries for DeepSeek Harness.
 
-Third-party plugin, MIT licensed. Beta 0.6.0-beta.2, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
+Third-party plugin, MIT licensed. Beta 0.6.0-beta.3, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
 
 Download the release tarball. Launch Desktop once to initialize its profile, then fully quit through the Application menu. On Windows, use its bundled CLI in PowerShell (adjust the download path):
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.6.0-beta.2.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.6.0-beta.3.tgz"
 ```
 
 Reopen Desktop and check the plugin version. The ordinary npm CLI cannot manage the reserved `desktop` profile. Configure `deepseek-official` / `deepseek-flash` first. Remove the old `@local/prompt-copilot` development bundle before installing this one.
@@ -21,4 +21,4 @@ Each reply triggers an extra model call, with at most one format retry. Recent c
 
 See [Chinese usage/configuration guide](README.md), [privacy](PRIVACY.md) and [license](LICENSE). Source tests: `npm test`; package: `npm pack`. No build or install scripts are required.
 
-While expanded, Right generates a new batch (an additional model call); Left browses earlier batches. History is kept per reply, including while regeneration is pending or fails.
+While expanded, Left and Right browse existing batches. Right generates a new batch only when viewing the latest one (an additional model call). History is kept per reply, including while regeneration is pending or fails.
