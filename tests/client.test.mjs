@@ -16,7 +16,7 @@ test('compact default, single Tab expansion, Enter adoption and scope guards',()
  const count=()=>all(tree,n=>n.props.role==='option').length;
  const key=(key,extra={})=>listeners.get('keydown')?.({key,target:editor,preventDefault(){},stopPropagation(){},...extra});
  render();assert.equal(count(),1);key('Tab');assert.equal(inserted.length,0);render();assert.equal(count(),3);
- key('Tab');assert.equal(inserted.length,0);
+ key('Tab');render();assert.equal(count(),1);assert.equal(inserted.length,0);key('Tab');render();assert.equal(count(),3);
  key('ArrowDown');render();let prevented=false,stopped=false;
  key('Enter',{preventDefault(){prevented=true},stopImmediatePropagation(){stopped=true}});
  assert.equal(inserted.at(-1),'第二条');assert.ok(prevented && stopped);
