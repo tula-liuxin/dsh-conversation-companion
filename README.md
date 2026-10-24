@@ -2,7 +2,7 @@
 
 让 AI 帮你想下一句，也把长回复讲明白。
 
-[English](README.en.md) · MIT · 0.4.1
+[English](README.en.md) · MIT · 0.4.2
 
 这是 DeepSeek Harness 的第三方插件，不适用于普通 DeepSeek 网页聊天。
 
@@ -31,10 +31,10 @@ macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不
 2. 在 PowerShell 使用桌面版自带的命令安装；下面适用于默认安装路径，修改 tgz 路径为你的下载位置：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.4.1.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.4.2.tgz"
 ```
 
-3. 重新打开 DSH，插件页应显示“对话助手”及 `0.4.1`。
+3. 重新打开 DSH，插件页应显示“对话助手”及 `0.4.2`。
 
 注意：npm 安装的普通 `dsh` CLI 与桌面版自带 CLI 不同；普通 CLI 不允许管理保留的 `desktop` profile。不要直接用 PATH 中来源不明的 `dsh plugin --profile desktop`。界面安装也可在 DSH 中让 Creator 安装解压后包含 `package.json` 的本地 bundle 目录，通过 DSH 安装确认流程完成。
 
@@ -99,3 +99,5 @@ npm pack
 ### 响应速度
 
 每条候选的标题和正文完整生成、通过原有校验后立即显示，后续候选和摘要继续补齐到同一组；摘要中断不影响采用已生成候选。相同会话、模式、草稿及深度上下文的检查合并在途请求，成功结果在内存复用60秒，最多20条；失败不缓存。主动检查仍有450ms双击判定，自动触发仍为60字/5秒或小修改/15秒。未更换模型、降低推理强度或缩短上下文。首次生成仍受模型服务耗时影响。
+
+空输入框按 Tab：已有候选就打开/采用；没有候选则主动请求并显示进度。新会话尚无消息时会提示先发送消息。已停止且没有AI文字回复时，手动预测依据已有真实用户上下文，不继续原任务、不假定工具结果；按Tab生成仍会产生一次额外模型调用。

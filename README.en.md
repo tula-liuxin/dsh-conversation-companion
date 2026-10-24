@@ -2,12 +2,12 @@
 
 Concise next-message suggestions and plain-language summaries for DeepSeek Harness.
 
-Third-party plugin, MIT licensed. Beta 0.4.1, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
+Third-party plugin, MIT licensed. Beta 0.4.2, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
 
 Download the release tarball. Launch Desktop once to initialize its profile, then fully quit through the Application menu. On Windows, use its bundled CLI in PowerShell (adjust the download path):
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.4.1.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.4.2.tgz"
 ```
 
 Reopen Desktop and check the plugin version. The ordinary npm CLI cannot manage the reserved `desktop` profile. Configure `deepseek-official` / `deepseek-flash` first. Remove the old `@local/prompt-copilot` development bundle before installing this one.
@@ -34,3 +34,5 @@ After at least 60 new non-whitespace characters since the last check, a 5-second
 Shift+Tab requests a conservative check regardless of length or previous checks. Hold Shift and press Tab twice within 450ms for one deep rewrite instead. Deep mode uses recent conversation and may restructure the request or change its direction; reasons are shown. Tab accepts, Esc dismisses. Automatic checks remain conservative. Empty drafts, IME composition and running turns are excluded.
 
 Complete suggestions are validated and shown individually as they arrive, followed by the remaining suggestions and summary in the same batch. The model request, generation instructions, context and validation rules are unchanged. No extra requests are added. First-text latency from the provider remains; timing metadata is recorded locally to distinguish that wait from output delivery.
+
+Tab in an empty composer requests predictions when none exist, showing progress or the reason they cannot be generated. A stopped tool-only turn can use its existing user context without resuming the agent or assuming tool success. A new empty conversation shows a request to send a message first.

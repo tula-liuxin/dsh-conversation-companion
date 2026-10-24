@@ -90,6 +90,19 @@ function lastAssistantText(session) {
   return ''
 }
 
+export function selectPredictionSource(session) {
+  const events = eventsOf(session)
+  const end = events.findLast(e => e.type === 'turn/end')
+  const start = events.findLast(e => e.type === 'turn/start')
+  const human = events.findLast(e => e.type === 'user/message' && isUserMessage(e.data?.message ?? e.data) && textOfMessage(e.data?.message ?? e.data))
+  const lastReply = lastAssistantEvent(session)
+  const reply = lastReply?.data.turn === end?.data.turn ? lastReply : null
+  const source = reply && (!human || reply.seq > human.seq) ? reply : human
+  if (!source) return { error: '请先发送一条消息，再按 Tab 生成预测。' }
+  if (!end || end.seq < source.seq || (start && start.seq > end.seq)) return { error: '请等待当前回复结束，或停止回复后再按 Tab。' }
+  return { source, turn: end.data.turn, userOnly: source.type === 'user/message', stopped: end.data.reason?.kind !== 'completed' }
+}
+
 /** 从可能带围栏或废话的输出里救出 JSON。 */
 function extractJson(raw) {
   const text = String(raw ?? '').trim()
@@ -383,23 +396,22 @@ export function apply(ctx, config) {
     description: '重新生成下一句建议，保留旧候选供翻阅',
     handler: ({ agent }) => {
       const session = agent.session
-      const source = lastAssistantEvent(session)
-      if (!source || !eventsOf(session).some(e => e.type === 'turn/end' && e.data?.turn === source.data.turn && e.seq > source.seq) || eventsOf(session).some(e => e.seq > source.seq && (e.type === 'turn/start' || e.type === 'user/message'))) return { kind: 'error', text: '请等待当前回复完成后再生成' }
-      if (running.has(session.id)) return { kind: 'error', text: '正在生成，请稍候' }
-      void generate(session, source.data.turn, true)
+      const selected = selectPredictionSource(session)
+      if (selected.error) return { kind: 'error', text: selected.error }
+      if (running.has(session.id)) return { kind: 'success' }
+      void generate(session, selected.turn, true, true)
       return { kind: 'success' }
     },
   })
 
-  async function generate(session, completedTurn, refresh = false) {
+  async function generate(session, completedTurn, refresh = false, manual = false) {
     const sessionId = session?.id ?? session?.sessionId ?? 'unknown'
-    const source = lastAssistantEvent(session)
-    if (!source || source.data?.turn !== completedTurn) return
+    const selected = selectPredictionSource(session)
+    if (selected.error || selected.turn !== completedTurn || (selected.userOnly && !manual)) return
+    const { source } = selected
     const previous = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
     if (!refresh && running.get(sessionId)?.sourceSeq === source.seq && !running.get(sessionId).signal.aborted) return
     const oldPrompts = refresh ? (previous?.batches ?? [previous]).flatMap(b => b?.next ?? []).slice(-30) : []
-    const reply = lastAssistantText(session)
-    if (reply === '') return
     const context = recentTurns(session, settings.maxInputChars)
     const userStyle = eventsOf(session).filter((e) => e.type === 'user/message' && isUserMessage(e.data?.message ?? e.data)).slice(-3).map((e) => textOfMessage(e.data?.message ?? e.data).slice(0, 400)).join('\n')
     if (context === '') return
@@ -423,8 +435,8 @@ export function apply(ctx, config) {
       await publish(session, { status: 'pending', summary: '', next: [], at: Date.now(), sourceSeq: source.seq })
       let parsed = null
       for (let attempt = 0; attempt < 2 && parsed === null && !early; attempt += 1) {
-        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (refresh ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal, SYSTEM, async raw => {
-          if (controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
+        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (selected.userOnly ? '\n本轮没有AI文字回复。根据真实用户已有意图预测下一句；summary只说明目前没有文字回复，不要编造回答或工具结果。' : '') + (selected.stopped ? '\n本轮已停止，内容可能不完整；不要把工具调用或计划当作已完成的结果。' : '') + (refresh && oldPrompts.length ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal, SYSTEM, async raw => {
+          if (controller.signal.aborted || disposed || selectPredictionSource(session).source?.seq !== source.seq) return
           if (raw.length) timing.firstTextMs ??= Date.now() - started
           const candidates = streamedCandidates(raw, settings.count, true)
           if (!candidates) return
@@ -440,7 +452,7 @@ export function apply(ctx, config) {
       }
       if (parsed === null) throw new Error(early ? '生成未完整结束；已完成的候选仍可使用' : '模型没有返回有效的摘要和候选句')
       if (early && (JSON.stringify(parsed.next.slice(0, early.next.length)) !== JSON.stringify(early.next) || JSON.stringify(parsed.titles.slice(0, early.titles.length)) !== JSON.stringify(early.titles))) throw new Error('模型返回了冲突的候选，已保留先前验证通过的一组')
-      if (controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
+      if (controller.signal.aborted || disposed || selectPredictionSource(session).source?.seq !== source.seq) return
 
       const payload = prediction(parsed)
       await publish(session, payload)
@@ -473,7 +485,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.4.1', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.4.2', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 

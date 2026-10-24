@@ -167,8 +167,10 @@ window.__ModuleLoader__.load({
         function Suggestions(props) {
           const live = props.useProjection(KEY)
           const [browsing, setBrowsing] = useState(null)
-          const [requestError, setRequestError] = useState('')
+          const [requestNotice, setRequestNotice] = useState(null)
           const requesting = useRef(false)
+          const notice = requestNotice?.sessionId === props.sessionId ? requestNotice : null
+          const requestError = notice?.error ?? ''
           const batches = live?.batches?.length ? live.batches : live?.next?.length ? [live] : []
           const matched = browsing?.sessionId === props.sessionId && browsing?.sourceSeq === live?.sourceSeq ? batches.findIndex(b => b.at === browsing.at) : -1
           const page = matched < 0 ? batches.length - 1 : matched
@@ -204,6 +206,19 @@ window.__ModuleLoader__.load({
           const index = expanded ? Math.min(selected, Math.max(0, options.length - 1)) : 0
           const text = options[index]?.prompt ?? ''
           const available = options.length > 0 && !draft && !running && !predictionsHidden
+          const requestPrediction = () => {
+            if (requesting.current?.sessionId === props.sessionId || live?.status === 'pending' || live?.candidatesPending || live?.summaryPending) return
+            const request = { sessionId: props.sessionId }
+            requesting.current = request
+            setRequestNotice({ ...request, pending: true }); setBrowsing(null)
+            Promise.resolve().then(() => ctx.remote.commands.execute(request.sessionId, '/companion-refresh', []))
+              .then(result => {
+                if (!result.ok) throw new Error(result.error?.message || '无法生成预测')
+                if (result.value?.result?.kind === 'error') throw new Error(result.value.result.text)
+                setRequestNotice({ ...request, pending: false })
+              }).catch(error => setRequestNotice({ ...request, pending: false, error: error.message || String(error) }))
+              .finally(() => { if (requesting.current === request) requesting.current = false })
+          }
           useEffect(() => { setSelected(0) }, [props.sessionId, view?.at])
           useEffect(() => {
             if (current.sessionId === props.sessionId) publish({ view })
@@ -258,15 +273,7 @@ window.__ModuleLoader__.load({
                   setSelected(0)
                   return
                 }
-                if (requesting.current || live?.status === 'pending' || live?.candidatesPending || live?.summaryPending) return
-                requesting.current = true
-                setRequestError(''); setBrowsing(null)
-                Promise.resolve().then(() => ctx.remote.commands.execute(props.sessionId, '/companion-refresh', []))
-                  .then(result => {
-                    if (!result.ok) throw new Error(result.error?.message || '无法重新生成')
-                    if (result.value?.result?.kind === 'error') throw new Error(result.value.result.text)
-                  }).catch(error => setRequestError(error.message || String(error)))
-                  .finally(() => { requesting.current = false })
+                requestPrediction()
               } else if (event.key === 'Tab') {
                 // Consume before setting draft so the host cannot send this keypress.
                 event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
@@ -277,20 +284,32 @@ window.__ModuleLoader__.load({
             return () => window.removeEventListener('keydown', onKey, true)
           }, [available, expanded, text, options.length, props.inputActions, props.sessionId, view, live, page, batches])
           useEffect(() => {
-            if (!predictionsHidden || draft || running) return
+            if ((!predictionsHidden && options.length) || draft || running) return
             const reopen = event => {
-              if (event.key !== 'Tab' || event.repeat || event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+              if (!['Tab', 'Escape'].includes(event.key) || event.repeat || event.isComposing || event.keyCode === 229 || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
               const card = anchor.current?.closest('[data-composer-card]')
-              if (!card || !event.target?.isContentEditable || event.target.closest('[data-composer-card]') !== card) return
+              if (!card || !(anchor.current?.contains?.(event.target) || (event.target?.isContentEditable && event.target.closest('[data-composer-card]') === card))) return
+              if (event.key === 'Escape') {
+                if (predictionsHidden) return
+                event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
+                setPredictionsHidden(true); return
+              }
               event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
               expandedBatches.clear()
               setSelected(0)
               setPredictionsHidden(false)
+              if (!options.length) requestPrediction()
             }
             window.addEventListener('keydown', reopen, true)
             return () => window.removeEventListener('keydown', reopen, true)
-          }, [predictionsHidden, draft, running, props.sessionId])
-          if (!available) return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
+          }, [predictionsHidden, draft, running, props.sessionId, options.length, live])
+          if (!available) {
+            const status = !predictionsHidden && !draft && !running && !options.length
+              ? requestError || live?.error || (notice?.pending || live?.status === 'pending' ? '正在生成预测… Esc 关闭' : '') : ''
+            if (status) return h('div', { ref: anchor, role: 'region', 'aria-label': '下一句预测状态', style: { position: 'absolute', bottom: '100%', left: 0, right: 0, padding: '7px 12px', fontSize: 12, background: 'var(--dsw-alias-bg-elevated, #fff)', border: '1px solid var(--dsw-alias-border-subtle, #ddd)', borderRadius: 8, pointerEvents: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('span', { role: 'status' }, status), h('button', { type: 'button', style: { ...CSS.btn, padding: '2px 6px', fontSize: 11 }, onMouseDown: e => e.preventDefault(), onClick: () => setPredictionsHidden(true) }, '关闭 · Esc'))
+            return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
+          }
           return h(React.Fragment, null,
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
             h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头或右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
