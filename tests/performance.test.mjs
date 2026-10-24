@@ -37,3 +37,42 @@ test('summary completion updates one history batch and clears its pending state'
  const {summaryPending,...final}=first;state=foldPrediction(state,event({...final,summary:'完整摘要'}));
  assert.equal(state.batches.length,1);assert.equal(state.batches[0].summary,'完整摘要');assert.equal(state.batches[0].summaryPending,undefined);assert.deepEqual(JSON.parse(JSON.stringify(state)),state);
 });
+
+test('progressive candidates preserve the exact final output across every chunk boundary',()=>{
+ const items=[{title:'解释例子',prompt:'解释这个 " } ] \\ 例子。'},{title:'下一步怎么做',prompt:'下一步做什么？'},{title:'比较方案',prompt:'比较一下这两个方案。'}];
+ const object=JSON.stringify(items[0]),prefix='{"next":['+object;
+ for(let i=0;i<prefix.length;i++)assert.equal(streamedCandidates(prefix.slice(0,i),3,true),null);
+ const one=streamedCandidates(prefix,3,true);assert.deepEqual(one.next,[items[0].prompt]);assert.equal(one.candidatesPending,true);
+ assert.equal(streamedCandidates('{"next":[{"title":"第一步该","prompt":"做什么？"}',3,true),null);
+ const raw='{"next":'+JSON.stringify(items)+',"summary":"完整摘要"}';
+ let maxCount=0;for(let i=0;i<=raw.length;i++){
+  const value=streamedCandidates(raw.slice(0,i),3,true);if(!value)continue;
+  assert.ok(value.next.length>=maxCount);maxCount=value.next.length;
+  assert.deepEqual(value.next,items.slice(0,maxCount).map(x=>x.prompt));assert.deepEqual(value.titles,items.slice(0,maxCount).map(x=>x.title));
+ }
+ assert.equal(maxCount,3);assert.equal(streamedCandidates(raw,3,true).candidatesPending,undefined);
+ const duplicates='{"next":'+JSON.stringify([items[0],items[0],items[1]]);
+ assert.deepEqual(streamedCandidates(duplicates,3,true).next,[items[0].prompt,items[1].prompt]);
+ assert.deepEqual(streamedCandidates(raw,1,true).next,[items[0].prompt]);
+});
+
+test('incremental candidates stay in one batch; errors clear every pending flag',()=>{
+ const event=data=>({type:'plugin:prompt-copilot/turn',data});
+ const first={status:'ready',sourceSeq:9,at:10,next:['候选一'],titles:['先做什么'],summary:'',summaryPending:true,candidatesPending:true};
+ let state=foldPrediction(null,event(first));
+ state=foldPrediction(state,event({...first,next:['候选一','候选二'],titles:['先做什么','怎么验证']}));
+ assert.equal(state.batches.length,1);assert.equal(state.batches[0].next.length,2);
+ const failed=foldPrediction(state,event({status:'error',sourceSeq:9,error:'interrupted'}));
+ assert.equal(failed.candidatesPending,false);assert.equal(failed.summaryPending,false);assert.equal(failed.batches[0].candidatesPending,false);assert.deepEqual(failed.next,state.next);
+ const {candidatesPending,summaryPending,...final}=first;
+ state=foldPrediction(state,event({...final,next:state.next,titles:state.titles,summary:'完成'}));
+ assert.equal(state.batches.length,1);assert.equal(state.batches[0].candidatesPending,undefined);assert.equal(state.summaryPending,undefined);
+ assert.deepEqual(JSON.parse(JSON.stringify(state)),state);
+});
+
+test('a stalled stream cannot publish late chunks after timeout',async()=>{
+ let release,seen=0;const gate=new Promise(r=>release=r);
+ const ctx={llm:{async *stream(){await gate;yield {type:'text-delta',text:'late'}}}};
+ await assert.rejects(complete(ctx,{...settings,timeoutMs:10},'x',new AbortController().signal,undefined,()=>seen++),/超时/);
+ release();await new Promise(r=>setImmediate(r));assert.equal(seen,0);
+});

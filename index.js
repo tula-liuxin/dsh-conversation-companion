@@ -3,7 +3,7 @@
  *
  * 每条 AI 回复结束（turn/end）后：
  *   1. 一次模型调用，同时产出「人话摘要」和「下一条 prompt 的候选」；
- *   2. 用 appendPluginRecord 写一条可重放的会话记录（前端靠投影读它）；
+ *   2. 完整候选逐条校验发布，摘要补齐同组可重放记录；
  *   3. 追加一行到本地 JSONL 库。
  * 手动刷新通过宿主命令入口调用同一生成逻辑。
  */
@@ -142,6 +142,7 @@ async function streamCompletion(ctx, settings, prompt, signal, system = SYSTEM, 
     signal,
   })
   for await (const chunk of stream) {
+    if (signal.aborted) throw new Error('Generation cancelled')
     if (chunk.type === 'text-delta') {
       text += chunk.text
       if (onText) await onText(text)
@@ -179,13 +180,18 @@ export async function reviewInput(ctx, settings, session, draft, mode, signal) {
   const raw = await complete(ctx, settings, JSON.stringify(input), signal, mode === 'deep' ? DEEP_REVIEW_SYSTEM : REVIEW_SYSTEM)
   return { mode, edits: validateEdits(draft, extractJson(raw), mode) }
 }
-// Only a closed, valid entire candidate array can become interactive.
-export function streamedCandidates(raw, count = 3) {
+// Publish only closed JSON objects, using exactly the final-response validator.
+// The default keeps the complete-array reader available for compatibility/tests.
+export function streamedCandidates(raw, count = 3, progressive = false) {
   const start = raw.indexOf('{')
   const match = /^\{\s*"next"\s*:\s*\[/.exec(raw.slice(start))
   if (start < 0 || !match) return null
   const arrayStart = start + match[0].lastIndexOf('[')
-  let depth = 0, quoted = false, escaped = false
+  let depth = 0, objects = 0, quoted = false, escaped = false, latest = null
+  const parse = end => {
+    try { return normalize({ next: JSON.parse(raw.slice(arrayStart, end) + ']'), summary: 'pending' }, count) }
+    catch { return null }
+  }
   for (let i = arrayStart; i < raw.length; i++) {
     const c = raw[i]
     if (quoted) {
@@ -193,13 +199,20 @@ export function streamedCandidates(raw, count = 3) {
       else if (c === '\\') escaped = true
       else if (c === '"') quoted = false
     } else if (c === '"') quoted = true
+    else if (c === '{') objects++
+    else if (c === '}') {
+      objects--
+      if (progressive && objects === 0 && depth === 1) {
+        const value = parse(i + 1)
+        if (value) latest = { ...value, candidatesPending: true }
+      }
+    }
     else if (c === '[') depth++
     else if (c === ']' && --depth === 0) {
-      try { return normalize({ next: JSON.parse(raw.slice(arrayStart, i + 1)), summary: 'pending' }, count) }
-      catch { return null }
+      return parse(i)
     }
   }
-  return null
+  return latest
 }
 
 export function createReviewWorker(ctx, settings, now = Date.now) {
@@ -244,7 +257,7 @@ export function foldPrediction(state, event) {
   if (event.type !== 'plugin:prompt-copilot/turn') return state
   const data = event.data
   const previous = state?.sourceSeq === data.sourceSeq ? state : null
-  const toBatch = value => ({ at: value.at, next: value.next ?? [], titles: value.titles ?? [], summary: value.summary ?? '', ...(value.summaryPending ? { summaryPending: true } : {}) })
+  const toBatch = value => ({ at: value.at, next: value.next ?? [], titles: value.titles ?? [], summary: value.summary ?? '', ...(value.summaryPending ? { summaryPending: true } : {}), ...(value.candidatesPending ? { candidatesPending: true } : {}) })
   const batches = previous?.batches ?? (previous?.next?.length ? [toBatch(previous)] : [])
   if (data.status === 'ready') {
     const batch = toBatch(data)
@@ -252,9 +265,9 @@ export function foldPrediction(state, event) {
   }
   if (!previous) return data
   const { error: oldError, ...retained } = previous
-  return { ...retained, status: data.status, ...(data.status === 'error' && retained.summaryPending ? {
-    summaryPending: false,
-    batches: batches.map(b => b.at === retained.at ? { ...b, summaryPending: false } : b),
+  return { ...retained, status: data.status, ...(data.status === 'error' && (retained.summaryPending || retained.candidatesPending) ? {
+    summaryPending: false, candidatesPending: false,
+    batches: batches.map(b => b.at === retained.at ? { ...b, summaryPending: false, candidatesPending: false } : b),
   } : {}), ...(typeof data.error === 'string' ? { error: data.error } : {}) }
 }
 
@@ -291,7 +304,7 @@ export function apply(ctx, config) {
   ctx.sessionProjections.register({
     key: 'prompt-copilot',
     stateSchema: passthrough,
-    stateVersion: 5,
+    stateVersion: 6,
     init: () => null,
     apply: foldPrediction,
     wire: { viewSchema: passthrough, view: (state) => state },
@@ -329,8 +342,8 @@ export function apply(ctx, config) {
     await cacheReady
     if (disposed || running.has(session.id)) return
     const interrupted = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
-    if (interrupted?.summaryPending) {
-      await publish(session, { status: 'error', sourceSeq: interrupted.sourceSeq, error: '摘要生成已中断，候选仍可使用', at: interrupted.at })
+    if (interrupted?.summaryPending || interrupted?.candidatesPending) {
+      await publish(session, { status: 'error', sourceSeq: interrupted.sourceSeq, error: '生成已中断，已完成的候选仍可使用', at: interrupted.at })
       lastPrediction.set(session.id, ctx.sessionProjections.stateOf(session, 'prompt-copilot'))
       return
     }
@@ -396,11 +409,14 @@ export function apply(ctx, config) {
     controller.sourceSeq = source.seq
     running.set(sessionId, controller)
     const at = Math.max(Date.now(), (previous?.at ?? 0) + 1)
+    const started = Date.now()
+    const timing = { firstTextMs: null, firstCandidateMs: null, candidatesMs: null }
     let early = null
     const prediction = (value, summaryPending = false) => ({
       status: 'ready', promptStyleVersion: 1, sourceSeq: source.seq,
       summary: summaryPending ? '' : value.summary, next: value.next, titles: value.titles,
       at, turn: completedTurn, ...(summaryPending ? { summaryPending: true } : {}),
+      ...(value.candidatesPending ? { candidatesPending: true } : {}),
     })
 
     try {
@@ -408,18 +424,22 @@ export function apply(ctx, config) {
       let parsed = null
       for (let attempt = 0; attempt < 2 && parsed === null && !early; attempt += 1) {
         const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (refresh ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal, SYSTEM, async raw => {
-          if (early || controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
-          const candidates = streamedCandidates(raw, settings.count)
+          if (controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
+          if (raw.length) timing.firstTextMs ??= Date.now() - started
+          const candidates = streamedCandidates(raw, settings.count, true)
           if (!candidates) return
+          if (early && candidates.next.length === early.next.length && !!candidates.candidatesPending === !!early.candidatesPending) return
           early = candidates
+          timing.firstCandidateMs ??= Date.now() - started
+          if (!candidates.candidatesPending) timing.candidatesMs ??= Date.now() - started
           const partial = prediction(candidates, true)
           await publish(session, partial)
           lastPrediction.set(sessionId, partial)
         })
         parsed = normalize(extractJson(raw), settings.count)
       }
-      if (parsed === null) throw new Error(early ? '候选已生成，但摘要未完成；可继续采用候选' : '模型没有返回有效的摘要和候选句')
-      if (early && (JSON.stringify(parsed.next) !== JSON.stringify(early.next) || JSON.stringify(parsed.titles) !== JSON.stringify(early.titles))) throw new Error('模型返回了冲突的候选，已保留先前验证通过的一组')
+      if (parsed === null) throw new Error(early ? '生成未完整结束；已完成的候选仍可使用' : '模型没有返回有效的摘要和候选句')
+      if (early && (JSON.stringify(parsed.next.slice(0, early.next.length)) !== JSON.stringify(early.next) || JSON.stringify(parsed.titles.slice(0, early.titles.length)) !== JSON.stringify(early.titles))) throw new Error('模型返回了冲突的候选，已保留先前验证通过的一组')
       if (controller.signal.aborted || disposed || lastAssistantEvent(session)?.seq !== source.seq) return
 
       const payload = prediction(parsed)
@@ -433,6 +453,7 @@ export function apply(ctx, config) {
       }
     } finally {
       if (running.get(sessionId) === controller) running.delete(sessionId)
+      void db.append({ t: 'generation-timing', sessionId, at, ...timing, totalMs: Date.now() - started, aborted: controller.signal.aborted }).catch(() => {})
     }
   }
 
@@ -452,7 +473,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.4.0', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.4.1', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 

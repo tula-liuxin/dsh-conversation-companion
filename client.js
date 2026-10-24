@@ -186,7 +186,7 @@ window.__ModuleLoader__.load({
           const repairedTitles = titleCache.get(titleKey)
           const needsTitles = prompts.some((prompt, i) => titleNeedsRepair(view?.titles?.[i], prompt))
           useEffect(() => {
-            if (!needsTitles || repairedTitles || !prompts.length || draft || running || predictionsHidden || titleRequests.has(titleKey)) return
+            if (!needsTitles || repairedTitles || !prompts.length || view?.candidatesPending || draft || running || predictionsHidden || titleRequests.has(titleKey)) return
             titleRequests.add(titleKey)
             Promise.resolve().then(() => ctx.remote.commands.execute(props.sessionId, '/companion-titles ' + JSON.stringify({ prompts }), []))
               .then(response => {
@@ -195,7 +195,7 @@ window.__ModuleLoader__.load({
                 if (!Array.isArray(titles) || titles.length !== prompts.length || titles.some(t => typeof t !== 'string' || !t.trim())) return
                 titleCache.set(titleKey, titles); publish({})
               }).catch(() => {})
-          }, [titleKey, needsTitles, repairedTitles, draft, running, predictionsHidden, props.sessionId])
+          }, [titleKey, needsTitles, repairedTitles, view?.candidatesPending, draft, running, predictionsHidden, props.sessionId])
           const options = prompts.map((prompt, index) => ({
             prompt,
             title: repairedTitles?.[index] || (titleNeedsRepair(view?.titles?.[index], prompt) ? prompt : view.titles[index]),
@@ -258,7 +258,7 @@ window.__ModuleLoader__.load({
                   setSelected(0)
                   return
                 }
-                if (requesting.current || live?.status === 'pending') return
+                if (requesting.current || live?.status === 'pending' || live?.candidatesPending || live?.summaryPending) return
                 requesting.current = true
                 setRequestError(''); setBrowsing(null)
                 Promise.resolve().then(() => ctx.remote.commands.execute(props.sessionId, '/companion-refresh', []))
@@ -295,8 +295,9 @@ window.__ModuleLoader__.load({
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
             h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头或右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : '换一组') + ' · Tab 采用' : '↓ / → 更多 · Tab 采用 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : live?.status === 'pending' || live?.summaryPending ? '生成中' : '换一组') + ' · Tab 采用' : '↓ / → 更多 · Tab 采用 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
               live?.status === 'pending' ? h('div', { role: 'status', style: { fontSize: 12 } }, '正在生成新的一组，旧建议仍可查看…') : null,
+              live?.candidatesPending ? h('div', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '其余候选生成中，已完成的可采用') : null,
               (requestError || live?.error) ? h('div', { role: 'status', style: { fontSize: 12, color: '#b42318' } }, requestError || live.error) : null,
               ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
                 onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); list.current?.focus({ preventScroll: true }) },
