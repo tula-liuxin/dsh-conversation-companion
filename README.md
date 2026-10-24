@@ -2,7 +2,7 @@
 
 让 AI 帮你想下一句，也把长回复讲明白。
 
-[English](README.en.md) · MIT · 0.3.1
+[English](README.en.md) · MIT · 0.3.2
 
 这是 DeepSeek Harness 的第三方插件，不适用于普通 DeepSeek 网页聊天。
 
@@ -17,7 +17,7 @@
 
 ## 兼容性
 
-首版锁定 DeepSeek Harness **0.3.1-rc.3**，以 Windows Desktop 为验证环境。
+首版锁定 DeepSeek Harness **0.3.2-rc.3**，以 Windows Desktop 为验证环境。
 macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不承诺支持。
 摘要只在 DSH 页面内置顶，不是跨应用系统置顶窗口。当前界面和生成指令以中文为主。
 
@@ -31,14 +31,14 @@ macOS、Linux、其他 DSH 版本及无图形界面的 CLI 未完成验证，不
 2. 在 PowerShell 使用桌面版自带的命令安装；下面适用于默认安装路径，修改 tgz 路径为你的下载位置：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.3.1.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.3.2.tgz"
 ```
 
-3. 重新打开 DSH，插件页应显示“对话助手”及 `0.3.1`。
+3. 重新打开 DSH，插件页应显示“对话助手”及 `0.3.2`。
 
 注意：npm 安装的普通 `dsh` CLI 与桌面版自带 CLI 不同；普通 CLI 不允许管理保留的 `desktop` profile。不要直接用 PATH 中来源不明的 `dsh plugin --profile desktop`。界面安装也可在 DSH 中让 Creator 安装解压后包含 `package.json` 的本地 bundle 目录，通过 DSH 安装确认流程完成。
 
-官方 npm 截至本次验证：`latest` 为 rc.2，`next` 为 rc.3。如需单独更新普通命令行，使用 `npm install -g @deepseek-ai/dsh@0.3.1-rc.3`；这不替代上述桌面安装命令。
+官方 npm 截至本次验证：`latest` 为 rc.2，`next` 为 rc.3。如需单独更新普通命令行，使用 `npm install -g @deepseek-ai/dsh@0.3.2-rc.3`；这不替代上述桌面安装命令。
 
 如之前装过开发版 `@local/prompt-copilot`，先在插件页移除旧版，再安装此版本；不要同时启用两个版本。旧摘要和本地缓存不会自动删除。
 

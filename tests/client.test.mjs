@@ -8,7 +8,7 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  const storage=new Map(); const localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
  const window={__ModuleLoader__:{load:x=>plugin=x.factory(()=>R)},addEventListener:(n,f)=>listeners.set(n,f),removeEventListener:n=>listeners.delete(n)};
  vm.runInNewContext(fs.readFileSync(new URL('../client.js',import.meta.url),'utf8'),{window,localStorage,setTimeout:f=>{timers.set(++nextTimer,f);return nextTimer},clearTimeout:id=>timers.delete(id)});
- plugin.apply({remote:{commands:{execute:async()=>{requests++;return {ok:true,value:{result:{kind:'success'}}}}}},slots:{inject:(_n,f)=>f(),register:({id},c)=>slots.set(id,c)}});
+ plugin.apply({remote:{commands:{execute:async(_id,line)=>{if(line.startsWith('/companion-titles ')){const {prompts}=JSON.parse(line.slice('/companion-titles '.length));return {ok:true,value:{result:{kind:'success',text:JSON.stringify({titles:prompts.map(()=> '下一步怎么做')})}}}}requests++;return {ok:true,value:{result:{kind:'success'}}}}}},slots:{inject:(_n,f)=>f(),register:({id},c)=>slots.set(id,c)}});
  let inserted=[],draft='',at=1,sessionId='a',history;const view=()=>({at,sourceSeq:at,batches:history,next:['第一条','第二条','第三条'],titles:['一','二','三']});
  const props=()=>({sessionId,useProjection:view,useInput:f=>f({draft}),useSession:f=>f({running:false}),inputActions:{setDraft:t=>inserted.push(t),persistDraft(){}}});
  function all(n,pred){if(!n||typeof n!=='object')return [];return [...(pred(n)?[n]:[]),...n.children.flatMap(c=>all(c,pred))]}

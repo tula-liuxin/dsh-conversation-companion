@@ -144,6 +144,9 @@ window.__ModuleLoader__.load({
           publish({})
         }
         // Expansion belongs only to the current prediction batch; new batches are compact.
+        const titleCache = new Map()
+        const titleRequests = new Set()
+        const titleNeedsRepair = (title, prompt) => !title || /…|\.{3}|(?:该|把|以及|或者|然后|因为)$/.test(title.trim()) || (title !== prompt && prompt.startsWith(title))
         const expandedBatches = new Map()
         const batchKey = (view) => String(view?.sourceSeq ?? view?.at ?? '')
         const isExpanded = (sessionId, view) => expandedBatches.get(sessionId) === batchKey(view)
@@ -178,14 +181,25 @@ window.__ModuleLoader__.load({
           const [height, setHeight] = useState(140)
           const list = useRef(null)
           const anchor = useRef(null)
-          const options = useMemo(() => (view?.next ?? []).filter((text) => typeof text === 'string' && text.trim()).slice(0, 3).map((prompt, index) => {
-            // Old stored predictions have no AI titles. Keep them readable until
-            // the next turn supplies semantic titles, without rewriting history.
-            const tokens = [...prompt.matchAll(/\p{Script=Han}|[A-Za-z]+(?:['’][A-Za-z]+)*|[0-9]+/gu)]
-            const end = tokens[13]
-            const fallback = end ? prompt.slice(0, end.index + end[0].length) : prompt
-            return { prompt, title: view?.titles?.[index] || fallback }
-          }), [view])
+          const prompts = (view?.next ?? []).filter(text => typeof text === 'string' && text.trim()).slice(0, 3)
+          const titleKey = JSON.stringify({ prompts, titles: view?.titles ?? [] })
+          const repairedTitles = titleCache.get(titleKey)
+          const needsTitles = prompts.some((prompt, i) => titleNeedsRepair(view?.titles?.[i], prompt))
+          useEffect(() => {
+            if (!needsTitles || repairedTitles || !prompts.length || draft || running || predictionsHidden || titleRequests.has(titleKey)) return
+            titleRequests.add(titleKey)
+            Promise.resolve().then(() => ctx.remote.commands.execute(props.sessionId, '/companion-titles ' + JSON.stringify({ prompts }), []))
+              .then(response => {
+                if (!response.ok || response.value?.result?.kind !== 'success') return
+                const { titles } = JSON.parse(response.value.result.text)
+                if (!Array.isArray(titles) || titles.length !== prompts.length || titles.some(t => typeof t !== 'string' || !t.trim())) return
+                titleCache.set(titleKey, titles); publish({})
+              }).catch(() => {})
+          }, [titleKey, needsTitles, repairedTitles, draft, running, predictionsHidden, props.sessionId])
+          const options = prompts.map((prompt, index) => ({
+            prompt,
+            title: repairedTitles?.[index] || (titleNeedsRepair(view?.titles?.[index], prompt) ? prompt : view.titles[index]),
+          }))
           const expanded = isExpanded(props.sessionId, view)
           const index = expanded ? Math.min(selected, Math.max(0, options.length - 1)) : 0
           const text = options[index]?.prompt ?? ''

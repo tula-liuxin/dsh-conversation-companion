@@ -72,3 +72,8 @@ CI template: ci.example.yml is provided as an optional example. GitHub Actions i
 ## 0.3.1
 
 9项既有回归测试、JavaScript语法检查通过。改写理由使用CSS hover/focus-within即时显示的tooltip，不依赖浏览器原生title延迟。该次未进行真实鼠标悬停验收。
+
+## 0.3.2
+
+10项测试及语法检查通过。真实桌面重新打开原会话并翻到第1/5组，模型补标题后显示：刷新试试看、先保留文档、下一步怎么做。原候选正文与5组历史保留。
+
