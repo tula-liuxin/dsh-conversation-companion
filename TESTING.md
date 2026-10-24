@@ -2,7 +2,15 @@
 
 Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also upgraded and version-checked at 0.2.1-rc.3.
 
-## Completed
+## 0.5.0-beta.2 update validation
+
+- Installed the beta.2 tarball over beta.1 using the bundled Desktop CLI; installer exited 0. Restarted the actual Desktop application.
+- Actual UI in the existing demo conversation: first candidate only by default; two rapid Tab presses expand three candidates without adopting; Down expands only the second candidate body; Tab inserts the second candidate into the draft without sending.
+- Actual UI: Esc collapses to the first candidate; a single Tab inserts that first candidate after the short delay; Tab with a nonempty draft preserves its text.
+- Four Node tests and syntax checks pass. Simulated keyboard tests additionally cover cancelling delayed adoption on typing, pointer input, draft changes and session switches, modifier/scope guards and new-batch compact defaults.
+- Model generation and summary UI were not changed or rerun for beta.2; earlier beta.1 coverage is listed below.
+
+## 0.5.0-beta.1 validation (historical)
 
 - Four Node tests: candidate boundaries/deduplication, configuration/defaults, timeouts/cancellation, simulated keyboard/scope behavior.
 - JavaScript syntax checks and npm tarball file allowlist checks.
@@ -17,7 +25,7 @@ Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also 
 
 ## Boundaries
 
-Not tested: macOS/Linux, other DSH versions, all provider implementations, or a newly authenticated account in the clean profile. No claim of universal compatibility or guaranteed suggestion quality. The package targets exactly the version above; no new runtime code changes were needed after live validation. The client depends on host composer attributes that may change in future DSH versions.
+Not tested: macOS/Linux, other DSH versions, all provider implementations, or a newly authenticated account in the clean profile. No claim of universal compatibility or guaranteed suggestion quality. The package targets exactly the version above; beta.2 changes the prediction interaction; model generation remains unchanged. The client depends on host composer attributes that may change in future DSH versions.
 
 No credentials, personal chats, account configuration or local test logs are distributed.
 

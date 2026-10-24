@@ -136,13 +136,13 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         let current = { sessionId: null, view: null, open: false }
         const listeners = new Set()
-        // Hide only this prediction batch; switching chats must not reopen it.
-        const dismissed = new Map()
+        // Expansion belongs only to the current prediction batch; new batches are compact.
+        const expandedBatches = new Map()
         const batchKey = (view) => String(view?.sourceSeq ?? '') + ':' + String(view?.at ?? '')
-        const isDismissed = (sessionId, view) => dismissed.get(sessionId) === batchKey(view)
-        const setDismissed = (sessionId, view, hidden) => {
-          if (hidden) dismissed.set(sessionId, batchKey(view))
-          else dismissed.delete(sessionId)
+        const isExpanded = (sessionId, view) => expandedBatches.get(sessionId) === batchKey(view)
+        const setExpanded = (sessionId, view, expanded) => {
+          if (expanded) expandedBatches.set(sessionId, batchKey(view))
+          else expandedBatches.delete(sessionId)
           publish({})
         }
         const publish = (patch) => {
@@ -171,9 +171,10 @@ window.__ModuleLoader__.load({
             const fallback = end ? prompt.slice(0, end.index + end[0].length) : prompt
             return { prompt, title: view?.titles?.[index] || fallback }
           }), [view])
-          const index = Math.min(selected, Math.max(0, options.length - 1))
+          const expanded = isExpanded(props.sessionId, view)
+          const index = expanded ? Math.min(selected, Math.max(0, options.length - 1)) : 0
           const text = options[index]?.prompt ?? ''
-          const available = options.length > 0 && !draft && !running && !isDismissed(props.sessionId, view)
+          const available = options.length > 0 && !draft && !running
           useEffect(() => { setSelected(0) }, [props.sessionId, view?.at])
           useEffect(() => {
             if (current.sessionId === props.sessionId) publish({ view })
@@ -187,7 +188,8 @@ window.__ModuleLoader__.load({
           }, [available])
           const dismiss = () => {
             const editor = list.current?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')
-            setDismissed(props.sessionId, view, true)
+            setSelected(0)
+            setExpanded(props.sessionId, view, false)
             editor?.focus({ preventScroll: true })
           }
           const accept = () => {
@@ -200,41 +202,47 @@ window.__ModuleLoader__.load({
           }
           useEffect(() => {
             if (!available) return
+            let pendingTab = null
+            const cancelTab = () => { clearTimeout(pendingTab); pendingTab = null }
             const onKey = (event) => {
-              if (event.repeat || event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+              if (event.repeat || event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) { cancelTab(); return }
               const target = event.target
               const inside = list.current?.contains(target)
               const inEditor = target?.isContentEditable && target.closest('[data-composer-card]') === list.current?.closest('[data-composer-card]')
-              if (!inside && !inEditor) return
+              if (!inside && !inEditor) { cancelTab(); return }
+              if (event.key !== 'Tab') cancelTab()
               if (event.key === 'Escape') {
                 event.preventDefault(); event.stopPropagation(); dismiss()
-              } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              } else if (expanded && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
                 event.preventDefault(); event.stopPropagation()
                 setSelected((value) => (value + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length)
-              } else if (event.key === 'Tab' && accept()) { event.preventDefault(); event.stopPropagation() }
+              } else if (event.key === 'Tab') {
+                event.preventDefault(); event.stopPropagation()
+                if (expanded) accept()
+                else if (pendingTab !== null) {
+                  cancelTab()
+                  setSelected(0)
+                  setExpanded(props.sessionId, view, true)
+                } else pendingTab = setTimeout(() => { pendingTab = null; accept() }, 300)
+              }
             }
             window.addEventListener('keydown', onKey, true)
-            return () => window.removeEventListener('keydown', onKey, true)
-          }, [available, text, options.length, props.inputActions, props.sessionId, view])
-          useEffect(() => {
-            if (!isDismissed(props.sessionId, view) || draft || running || !options.length) return
-            const reopen = (event) => {
-              if (event.key !== 'Tab' || event.repeat || event.isComposing || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
-              const card = anchor.current?.closest('[data-composer-card]')
-              if (!card || !event.target?.isContentEditable || event.target.closest('[data-composer-card]') !== card) return
-              event.preventDefault(); event.stopPropagation()
-              setDismissed(props.sessionId, view, false)
+            window.addEventListener('pointerdown', cancelTab, true)
+            window.addEventListener('blur', cancelTab, true)
+            return () => {
+              cancelTab()
+              window.removeEventListener('keydown', onKey, true)
+              window.removeEventListener('pointerdown', cancelTab, true)
+              window.removeEventListener('blur', cancelTab, true)
             }
-            window.addEventListener('keydown', reopen, true)
-            return () => window.removeEventListener('keydown', reopen, true)
-          }, [available, draft, running, props.sessionId, view, options.length])
+          }, [available, expanded, text, options.length, props.inputActions, props.sessionId, view])
           if (!available) return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
           return h(React.Fragment, null,
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
-            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': '下一句预测，使用上下箭头切换，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
+            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，双击Tab展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, '下一句 · ' + options.length + ' 个方向'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, '↑ ↓ 切换 · Tab 采用'), h('button', { type: 'button', title: '临时收起预测（Esc），新一轮预测自动显示', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc'))),
-              ...options.map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · ' + options.length + ' 个方向' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · Tab 采用' : 'Tab 采用 · 双击 Tab 更多'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
                 onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); list.current?.focus({ preventScroll: true }) },
                 style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : 'transparent', cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },
                 h('div', { style: { fontWeight: i === index ? 600 : 400, lineHeight: '20px', overflowWrap: 'anywhere' } }, (i + 1) + '. ' + option.title),
