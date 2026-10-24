@@ -1,0 +1,8 @@
+- insert:
+    - id: prompt-copilot
+      name: 'dsh-conversation-companion'
+      config:
+        provider: deepseek-official
+        model: deepseek-flash
+        count: 3
+        logSent: false

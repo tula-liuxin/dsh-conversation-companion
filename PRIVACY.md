@@ -1,0 +1,12 @@
+# 数据与隐私 / Privacy
+
+- 模型服务：近期用户/AI文本和用户口吻样例发送给 DSH 配置的 provider/model。不是完全离线，也不是不离开本机。
+- 会话：插件生成的摘要和候选作为 ignorable 插件事件写入 DSH 会话。
+- 缓存：生成结果写到 `$DSH_HOME/prompt-copilot/db.jsonl`（未设置则 `~/.dsh/prompt-copilot/db.jsonl`）。可能包含对话里的私人信息；它是明文、追加保存，无自动过期。所有使用这个默认路径的 profile 共用缓存文件。可指定独立 dbPath。
+- 原文日志：`logSent` 默认 false；显式开启后额外记录发送原文。DSH 自己的聊天记录不受这个开关控制。
+- 浏览器：编辑摘要和浮窗位置保存在 `pc.v1.*` localStorage；不会由插件同步到其他设备。
+- 无内置分析、广告、作者服务器或自动发送功能。包不包含开发者的聊天记录、API密钥或账号配置。
+- 删除插件不会删除这些数据。先退出 DSH，再按 README 中的范围处理缓存；宿主会话数据按 DSH 功能管理。
+- 提交问题时只附脱敏的版本、错误和复现步骤，不要上传完整聊天日志、令牌或私人截图。
+
+Recent conversation is sent to your configured model provider. Generated results are stored in DSH sessions and a plaintext local cache. Separate raw-user-message logging is opt-in. Summary edits stay in localStorage. Uninstalling does not erase these records.
