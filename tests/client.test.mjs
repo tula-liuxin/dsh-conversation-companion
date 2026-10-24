@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-test('compact default, single Tab expansion, Enter adoption and scope guards',()=>{
+test('compact default, Down expansion, Tab adoption and scope guards',()=>{
  let plugin,effects=[],cleanup=[],states=[],cursor=0,tree;const slots=new Map(),listeners=new Map(),timers=new Map();let nextTimer=0;
  const R={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props??{},children:children.flat()}),useMemo:f=>f(),useRef:()=>({current:null}),useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],x=>states[i]=typeof x==='function'?x(states[i]):x]},useEffect:f=>effects.push(f),useSyncExternalStore:(_s,g)=>g()};
  const window={__ModuleLoader__:{load:x=>plugin=x.factory(()=>R)},addEventListener:(n,f)=>listeners.set(n,f),removeEventListener:n=>listeners.delete(n)};
@@ -15,17 +15,17 @@ test('compact default, single Tab expansion, Enter adoption and scope guards',()
  const render=()=>{cleanup.forEach(f=>f?.());effects=[];cursor=0;tree=slots.get('copilot-ghost')(props());cleanup=effects.map(f=>f());const list=all(tree,n=>n.props.role==='listbox')[0];if(list)list.props.ref.current={contains:()=>false,closest:()=>card};return tree};
  const count=()=>all(tree,n=>n.props.role==='option').length;
  const key=(key,extra={})=>listeners.get('keydown')?.({key,target:editor,preventDefault(){},stopPropagation(){},...extra});
- render();assert.equal(count(),1);key('Tab');assert.equal(inserted.length,0);render();assert.equal(count(),3);
- key('Tab');render();assert.equal(count(),1);assert.equal(inserted.length,0);key('Tab');render();assert.equal(count(),3);
+ render();assert.equal(count(),1);key('ArrowDown');assert.equal(inserted.length,0);render();assert.equal(count(),3);
+ key('Escape');render();assert.equal(count(),1);assert.equal(inserted.length,0);key('ArrowDown');render();assert.equal(count(),3);
  key('ArrowDown');render();let prevented=false,stopped=false;
- key('Enter',{preventDefault(){prevented=true},stopImmediatePropagation(){stopped=true}});
+ key('Tab',{preventDefault(){prevented=true},stopImmediatePropagation(){stopped=true}});
  assert.equal(inserted.at(-1),'第二条');assert.ok(prevented && stopped);
- key('Escape');render();assert.equal(count(),1);key('Enter');assert.equal(inserted.at(-1),'第一条');
+ key('Escape');render();assert.equal(count(),1);key('Tab');assert.equal(inserted.at(-1),'第一条');
  inserted=[];
- for(const extra of [{shiftKey:true},{isComposing:true},{repeat:true},{ctrlKey:true},{target:{isContentEditable:true,closest:()=>({})}}])key('Enter',extra);
+ for(const extra of [{shiftKey:true},{isComposing:true},{repeat:true},{ctrlKey:true},{target:{isContentEditable:true,closest:()=>({})}}])key('Tab',extra);
  assert.equal(inserted.length,0);
- draft='existing draft';render();key('Enter');key('Tab');assert.equal(inserted.length,0);assert.equal(count(),0);
- draft='';render();key('Tab');render();assert.equal(count(),3);at++;render();assert.equal(count(),1);
+ draft='existing draft';render();key('Tab');key('ArrowDown');assert.equal(inserted.length,0);assert.equal(count(),0);
+ draft='';render();key('ArrowDown');render();assert.equal(count(),3);at++;render();assert.equal(count(),1);
  sessionId='b';render();assert.equal(count(),1);
  cleanup.forEach(f=>f?.());
 });

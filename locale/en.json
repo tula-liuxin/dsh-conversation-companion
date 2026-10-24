@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Conversation Companion",
-    "description": "Suggest concise next messages and summarize AI replies in plain language. Switch suggestions, insert with Enter, hide them temporarily, and edit summaries in a movable floating panel."
+    "description": "Suggest concise next messages and summarize AI replies in plain language. Switch suggestions, insert with Tab, hide them temporarily, and edit summaries in a movable floating panel."
   }
 }

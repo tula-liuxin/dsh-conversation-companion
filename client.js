@@ -213,11 +213,10 @@ window.__ModuleLoader__.load({
               } else if (expanded && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
                 event.preventDefault(); event.stopPropagation()
                 setSelected((value) => (value + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length)
-              } else if (event.key === 'Tab') {
+              } else if (event.key === 'ArrowDown' && !expanded) {
                 event.preventDefault(); event.stopPropagation()
-                if (expanded) dismiss()
-                else { setSelected(0); setExpanded(props.sessionId, view, true) }
-              } else if (event.key === 'Enter') {
+                setSelected(0); setExpanded(props.sessionId, view, true)
+              } else if (event.key === 'Tab') {
                 // Consume before setting draft so the host cannot send this keypress.
                 event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
                 accept()
@@ -229,9 +228,9 @@ window.__ModuleLoader__.load({
           if (!available) return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
           return h(React.Fragment, null,
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
-            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Enter采用' : '下一句预测，Tab展开更多，Enter采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
+            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · ' + options.length + ' 个方向' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · Enter 采用' : 'Tab 更多 · Enter 采用'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Tab）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Tab') : null)),
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · ' + options.length + ' 个方向' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · Tab 采用' : '↓ 更多 · Tab 采用'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
               ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
                 onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); list.current?.focus({ preventScroll: true }) },
                 style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : 'transparent', cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },

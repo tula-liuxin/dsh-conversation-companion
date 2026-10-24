@@ -292,7 +292,7 @@ export function apply(ctx, config) {
     if (event?.type === 'turn/end') void generate(session, event.data?.turn)
   })
 
-  void db.append({ t: 'boot', version: '0.5.0-beta.4', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.5.0-beta.5', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 
