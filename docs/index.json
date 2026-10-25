@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "title": {"en": "Leo's DSH Plugins", "zh": "Leo 的 DSH 插件"},
+  "description": {"en": "Open-source tools for better conversations.", "zh": "让 AI 对话更顺手的开源插件。"},
+  "plugins": [{
+    "name": "dsh-conversation-companion",
+    "title": {"en": "Conversation Companion", "zh": "对话助手"},
+    "description": {"en": "Short next-prompt suggestions, typo correction, deep rewriting and plain-language summaries.", "zh": "预测简短的下一句，纠正笔误、深度改写，并用大白话总结回复。"},
+    "icon": "icon.svg",
+    "author": "Leo / tula-liuxin",
+    "homepage": "https://github.com/tula-liuxin/dsh-conversation-companion#readme",
+    "repository": {"url": "https://github.com/tula-liuxin/dsh-conversation-companion"},
+    "versions": [{
+      "version": "0.5.0",
+      "publishTimestamp": 1792902299,
+      "source": {"type": "git", "url": "https://github.com/tula-liuxin/dsh-conversation-companion", "commit": "820b49bf46880cf0e1c4cfd83748a363b3fe1aa3"},
+      "engines": {"dsh": "0.2.1-rc.3"}
+    }]
+  }]
+}
