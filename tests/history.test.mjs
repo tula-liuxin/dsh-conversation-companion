@@ -29,3 +29,11 @@ test('legacy missing titles and pending state are lossless JSON', () => {
  state=foldPrediction(state,event({status:'pending',sourceSeq:1}));check();assert.equal(Object.hasOwn(state,'error'),false);
  state=foldPrediction(state,event({...legacy,at:2,titles:['new']}));check();assert.equal(state.batches.length,2);
 });
+
+test('manual running snapshots survive main output but reset on the next turn',()=>{
+ const data={status:'ready',manualDuringTurn:true,turn:2,sourceSeq:7,at:11,next:['手动候选'],titles:['下一步'],summary:'进行中'};
+ const state=foldPrediction(null,{type:'plugin:prompt-copilot/turn',data});
+ assert.equal(foldPrediction(state,{type:'assistant/message',data:{turn:2}}),state);
+ assert.equal(foldPrediction(state,{type:'turn/start',data:{turn:3}}),null);
+ assert.equal(foldPrediction(state,{type:'assistant/message',data:{turn:3}}),null);
+});

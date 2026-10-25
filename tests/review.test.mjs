@@ -53,6 +53,15 @@ test('draft threshold, stale response, Tab acceptance, Escape dismissal and sess
  for(const extra of [{isComposing:true},{repeat:true},{ctrlKey:true},{target:{isContentEditable:true,closest:()=>({})}}])key('Tab',{shiftKey:true,...extra});tick(1000);assert.equal(requests.length,8);
  // Editing during the double-press window cancels the manual check.
  key('Tab',{shiftKey:true});draft+='z';render();tick(450);assert.equal(requests.length,8);
+ // While the main session is running, idle typing never invokes a check.
+ running=true;draft='错'.repeat(80);render();tick(60000);assert.equal(requests.length,8);
+ key('Tab',{shiftKey:true});tick(450);assert.equal(requests.length,9);await settle([edit]);assert.equal(tree.type,'section');
+ // Main completion does not erase a requested review, and Tab only edits the draft.
+ running=false;render();assert.equal(tree.type,'section');key('Tab');render();assert.ok(draft.startsWith('对'));
+ running=true;draft+='再修改';render();tick(60000);assert.equal(requests.length,9);
+ key('Tab',{shiftKey:true});tick(100);key('Tab',{shiftKey:true});assert.equal(requests.length,10);assert.equal(JSON.parse(requests.at(-1)[1].slice('/companion-review '.length)).mode,'deep');await settle([edit]);assert.equal(tree.type,'section');key('Escape');render();assert.equal(tree.props.hidden,true);
+ // Finishing the main turn alone does not auto-review an unreviewed running-time draft.
+ draft+='未检查';render();running=false;render();tick(60000);assert.equal(requests.length,10);
  oldEffects.forEach(e=>e.cleanup?.());
 });
 import {reviewInput,validateConfig} from '../index.js';

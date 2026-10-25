@@ -2,12 +2,12 @@
 
 Concise next-message suggestions and plain-language summaries for DeepSeek Harness.
 
-Third-party plugin, MIT licensed. Beta 0.4.2, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
+Third-party plugin, MIT licensed. Beta 0.5.0, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
 
 Download the release tarball. Launch Desktop once to initialize its profile, then fully quit through the Application menu. On Windows, use its bundled CLI in PowerShell (adjust the download path):
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.4.2.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.5.0.tgz"
 ```
 
 Reopen Desktop and check the plugin version. The ordinary npm CLI cannot manage the reserved `desktop` profile. Configure `deepseek-official` / `deepseek-flash` first. Remove the old `@local/prompt-copilot` development bundle before installing this one.
@@ -36,3 +36,5 @@ Shift+Tab requests a conservative check regardless of length or previous checks.
 Complete suggestions are validated and shown individually as they arrive, followed by the remaining suggestions and summary in the same batch. The model request, generation instructions, context and validation rules are unchanged. No extra requests are added. First-text latency from the provider remains; timing metadata is recorded locally to distinguish that wait from output delivery.
 
 Tab in an empty composer requests predictions when none exist, showing progress or the reason they cannot be generated. A stopped tool-only turn can use its existing user context without resuming the agent or assuming tool success. A new empty conversation shows a request to send a message first.
+
+While the main session is running, Tab in an empty composer explicitly requests predictions; Shift+Tab checks a draft and double Shift+Tab requests deep rewriting. No automatic predictions, draft checks or title repairs are started during the running turn. Requested predictions use a snapshot of existing user/assistant text, survive further output, and are cleared at the next turn. A turn with manual predictions skips duplicate automatic generation at completion. Clicking prediction whitespace/header or an option focuses the real composer for immediate typing. Adoption never sends or stops the main task.

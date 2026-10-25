@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 test('compact default, Right expansion, regeneration, history and scope guards',async()=>{
- let plugin,effects=[],cleanup=[],states=[],cursor=0,tree;let requests=0,empty=false,phase='',commandError='';const slots=new Map(),listeners=new Map(),timers=new Map();let nextTimer=0;
+ let plugin,effects=[],cleanup=[],states=[],cursor=0,tree;let requests=0,empty=false,phase='',commandError='',mainRunning=false,manualDuringTurn=false,focuses=0;const slots=new Map(),listeners=new Map(),timers=new Map();let nextTimer=0;
  const R={Fragment:'fragment',createElement:(type,props,...children)=>({type,props:props??{},children:children.flat()}),useMemo:f=>f(),useRef:()=>({current:null}),useState:v=>{const i=cursor++;if(!(i in states))states[i]=v;return [states[i],x=>states[i]=typeof x==='function'?x(states[i]):x]},useEffect:f=>effects.push(f),useSyncExternalStore:(_s,g)=>g()};
  const storage=new Map(); const localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
  const window={__ModuleLoader__:{load:x=>plugin=x.factory(()=>R)},addEventListener:(n,f)=>listeners.set(n,f),removeEventListener:n=>listeners.delete(n)};
  vm.runInNewContext(fs.readFileSync(new URL('../client.js',import.meta.url),'utf8'),{window,localStorage,setTimeout:f=>{timers.set(++nextTimer,f);return nextTimer},clearTimeout:id=>timers.delete(id)});
  plugin.apply({remote:{commands:{execute:async(_id,line)=>{if(line.startsWith('/companion-titles ')){const {prompts}=JSON.parse(line.slice('/companion-titles '.length));return {ok:true,value:{result:{kind:'success',text:JSON.stringify({titles:prompts.map(()=> '下一步怎么做')})}}}}requests++;return {ok:true,value:{result:{kind:'success'}}}}}},slots:{inject:(_n,f)=>f(),register:({id},c)=>slots.set(id,c)}});
- let inserted=[],draft='',at=1,sessionId='a',history,pendingCandidates=false,pendingSummary=false;const view=()=>({at,sourceSeq:at,status:phase,batches:history,candidatesPending:pendingCandidates,summaryPending:pendingSummary,next:empty?[]:['第一条','第二条','第三条'],titles:empty?[]:['一','二','三']});
- const props=()=>({sessionId,useProjection:view,useInput:f=>f({draft}),useSession:f=>f({running:false}),inputActions:{setDraft:t=>inserted.push(t),persistDraft(){}}});
+ let inserted=[],draft='',at=1,sessionId='a',history,pendingCandidates=false,pendingSummary=false;const view=()=>({at,sourceSeq:at,status:phase,batches:history,manualDuringTurn,candidatesPending:pendingCandidates,summaryPending:pendingSummary,next:empty?[]:['第一条','第二条','第三条'],titles:empty?[]:['一','二','三']});
+ const props=()=>({sessionId,useProjection:view,useInput:f=>f({draft}),useSession:f=>f({running:mainRunning}),inputActions:{setDraft:t=>inserted.push(t),persistDraft(){}}});
  function all(n,pred){if(!n||typeof n!=='object')return [];return [...(pred(n)?[n]:[]),...n.children.flatMap(c=>all(c,pred))]}
- const card={querySelector:()=>null},editor={isContentEditable:true,closest:()=>card};
+ const card={querySelector:()=>editor},editor={isContentEditable:true,closest:()=>card,focus:()=>focuses++};
  const render=()=>{cleanup.forEach(f=>f?.());effects=[];cursor=0;tree=slots.get('copilot-ghost')(props());cleanup=effects.map(f=>f());const list=all(tree,n=>n.props.role==='listbox')[0];if(list)list.props.ref.current={contains:()=>false,closest:()=>card};if(tree.props.hidden||tree.props.role==='region')tree.props.ref.current={contains:()=>false,closest:()=>card};return tree};
  const count=()=>all(tree,n=>n.props.role==='option').length;
  const key=(key,extra={})=>listeners.get('keydown')?.({key,target:editor,preventDefault(){},stopPropagation(){},...extra});
@@ -61,5 +61,13 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  sessionId='empty-new';empty=true;phase='';commandError='请先发送一条消息，再按 Tab 生成预测。';render();key('Tab');await new Promise(resolve=>setImmediate(resolve));render();assert.ok(JSON.stringify(tree).includes('请先发送'));
  sessionId='elsewhere';render();assert.equal(JSON.stringify(tree).includes('请先发送'),false);
  draft='keep my draft';render();baseline=requests;key('Tab');await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,baseline);
+ // Running sessions are manual-only, including hidden prediction reopening.
+ draft='';empty=true;history=[];commandError='';mainRunning=true;render();baseline=requests;await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,baseline);
+ key('Tab');await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,baseline+1);
+ empty=false;manualDuringTurn=true;phase='ready';render();assert.equal(count(),1);key('Tab');assert.equal(inserted.at(-1),'第一条');
+ // Blank/header clicks and option clicks focus the real editable surface.
+ let beforeFocus=focuses;const listNode=all(tree,n=>n.props.role==='listbox')[0];listNode.props.onMouseDown({target:{closest:()=>null},preventDefault(){}});assert.equal(focuses,beforeFocus+1);
+ beforeFocus=focuses;listNode.props.onMouseDown({target:{closest:()=>({})},preventDefault(){throw Error('button must keep its own action')}});assert.equal(focuses,beforeFocus);
+ all(tree,n=>n.props.role==='option')[0].props.onClick();assert.equal(focuses,beforeFocus+1);
  cleanup.forEach(f=>f?.());
 });

@@ -90,11 +90,15 @@ function lastAssistantText(session) {
   return ''
 }
 
-export function selectPredictionSource(session) {
+export function selectPredictionSource(session, allowRunning = false) {
   const events = eventsOf(session)
   const end = events.findLast(e => e.type === 'turn/end')
   const start = events.findLast(e => e.type === 'turn/start')
   const human = events.findLast(e => e.type === 'user/message' && isUserMessage(e.data?.message ?? e.data) && textOfMessage(e.data?.message ?? e.data))
+  if (allowRunning && human && start && (!end || start.seq > end.seq)) {
+    const reply = lastAssistantEvent(session)
+    return { source: human, turn: start.data.turn, startSeq: start.seq, userSeq: human.seq, duringTurn: true, userOnly: !reply || reply.data.turn !== start.data.turn }
+  }
   const lastReply = lastAssistantEvent(session)
   const reply = lastReply?.data.turn === end?.data.turn ? lastReply : null
   const source = reply && (!human || reply.seq > human.seq) ? reply : human
@@ -189,7 +193,7 @@ export function validateConfig(config = {}) {
   return settings
 }
 export async function reviewInput(ctx, settings, session, draft, mode, signal) {
-  const input = mode === 'deep' ? { draft, context: recentTurns(session, settings.maxInputChars) } : { draft }
+  const input = mode === 'deep' ? { draft, context: recentTurns(session, settings.maxInputChars), ...(selectPredictionSource(session, true).duringTurn ? { contextState: '主会话仍在进行，这是触发时的正文快照；不要把计划当结果，也不要假定最终回答已经完成。' } : {}) } : { draft }
   const raw = await complete(ctx, settings, JSON.stringify(input), signal, mode === 'deep' ? DEEP_REVIEW_SYSTEM : REVIEW_SYSTEM)
   return { mode, edits: validateEdits(draft, extractJson(raw), mode) }
 }
@@ -234,7 +238,7 @@ export function createReviewWorker(ctx, settings, now = Date.now) {
     cancel(id) { active.get(id)?.controller.abort() },
     dispose() { for (const job of active.values()) job.controller.abort(); active.clear(); cache.clear() },
     run(session, draft, mode, signal) {
-      const key = JSON.stringify([session.id, settings.provider, settings.model, mode, draft, mode === 'deep' ? recentTurns(session, settings.maxInputChars) : ''])
+      const key = JSON.stringify([session.id, settings.provider, settings.model, mode, draft, mode === 'deep' ? [recentTurns(session, settings.maxInputChars), !!selectPredictionSource(session, true).duringTurn] : ''])
       if (signal?.aborted) return Promise.reject(new Error('Generation cancelled'))
       const cached = cache.get(key)
       if (cached && now() - cached.at < 60000) {
@@ -266,7 +270,8 @@ export function createReviewWorker(ctx, settings, now = Date.now) {
 }
 // Keep immutable batches in the session projection, including during refresh failure.
 export function foldPrediction(state, event) {
-  if (event.type === 'assistant/message' || event.type === 'turn/start') return null
+  if (event.type === 'turn/start') return null
+  if (event.type === 'assistant/message') return state?.manualDuringTurn && state.turn === event.data?.turn ? state : null
   if (event.type !== 'plugin:prompt-copilot/turn') return state
   const data = event.data
   const previous = state?.sourceSeq === data.sourceSeq ? state : null
@@ -317,7 +322,7 @@ export function apply(ctx, config) {
   ctx.sessionProjections.register({
     key: 'prompt-copilot',
     stateSchema: passthrough,
-    stateVersion: 6,
+    stateVersion: 7,
     init: () => null,
     apply: foldPrediction,
     wire: { viewSchema: passthrough, view: (state) => state },
@@ -396,7 +401,7 @@ export function apply(ctx, config) {
     description: '重新生成下一句建议，保留旧候选供翻阅',
     handler: ({ agent }) => {
       const session = agent.session
-      const selected = selectPredictionSource(session)
+      const selected = selectPredictionSource(session, true)
       if (selected.error) return { kind: 'error', text: selected.error }
       if (running.has(session.id)) return { kind: 'success' }
       void generate(session, selected.turn, true, true)
@@ -406,9 +411,12 @@ export function apply(ctx, config) {
 
   async function generate(session, completedTurn, refresh = false, manual = false) {
     const sessionId = session?.id ?? session?.sessionId ?? 'unknown'
-    const selected = selectPredictionSource(session)
+    const selected = selectPredictionSource(session, manual)
     if (selected.error || selected.turn !== completedTurn || (selected.userOnly && !manual)) return
     const { source } = selected
+    const stillCurrent = () => selected.duringTurn
+      ? eventsOf(session).findLast(e => e.type === 'turn/start')?.seq === selected.startSeq && eventsOf(session).findLast(e => e.type === 'user/message' && isUserMessage(e.data?.message ?? e.data) && textOfMessage(e.data?.message ?? e.data))?.seq === selected.userSeq
+      : selectPredictionSource(session).source?.seq === source.seq
     const previous = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
     if (!refresh && running.get(sessionId)?.sourceSeq === source.seq && !running.get(sessionId).signal.aborted) return
     const oldPrompts = refresh ? (previous?.batches ?? [previous]).flatMap(b => b?.next ?? []).slice(-30) : []
@@ -419,6 +427,7 @@ export function apply(ctx, config) {
     running.get(sessionId)?.abort()
     const controller = new AbortController()
     controller.sourceSeq = source.seq
+    controller.manualDuringTurn = !!selected.duringTurn
     running.set(sessionId, controller)
     const at = Math.max(Date.now(), (previous?.at ?? 0) + 1)
     const started = Date.now()
@@ -429,14 +438,15 @@ export function apply(ctx, config) {
       summary: summaryPending ? '' : value.summary, next: value.next, titles: value.titles,
       at, turn: completedTurn, ...(summaryPending ? { summaryPending: true } : {}),
       ...(value.candidatesPending ? { candidatesPending: true } : {}),
+      ...(selected.duringTurn ? { manualDuringTurn: true } : {}),
     })
 
     try {
-      await publish(session, { status: 'pending', summary: '', next: [], at: Date.now(), sourceSeq: source.seq })
+      await publish(session, { status: 'pending', summary: '', next: [], at: Date.now(), sourceSeq: source.seq, ...(selected.duringTurn ? { manualDuringTurn: true, turn: completedTurn } : {}) })
       let parsed = null
       for (let attempt = 0; attempt < 2 && parsed === null && !early; attempt += 1) {
-        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (selected.userOnly ? '\n本轮没有AI文字回复。根据真实用户已有意图预测下一句；summary只说明目前没有文字回复，不要编造回答或工具结果。' : '') + (selected.stopped ? '\n本轮已停止，内容可能不完整；不要把工具调用或计划当作已完成的结果。' : '') + (refresh && oldPrompts.length ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal, SYSTEM, async raw => {
-          if (controller.signal.aborted || disposed || selectPredictionSource(session).source?.seq !== source.seq) return
+        const raw = await complete(ctx, settings, '用户近期原话（参考其口吻，勿扩写要求）：\n' + userStyle + '\n\n最近对话：\n' + context + (selected.duringTurn ? '\n主会话正在进行，以下仅是用户主动触发时的上下文快照，不是最终回答。只参考已有用户/AI正文，不推测尚未返回的结果，不把计划当作已完成。summary说明当前进展和未完成状态。' : '') + (selected.userOnly ? '\n本轮没有AI文字回复。根据真实用户已有意图预测下一句；summary只说明目前没有文字回复，不要编造回答或工具结果。' : '') + (selected.stopped ? '\n本轮已停止，内容可能不完整；不要把工具调用或计划当作已完成的结果。' : '') + (refresh && oldPrompts.length ? '\n用户主动要求换一组候选。避免简单复述下面的旧建议，但不要为求不同编造要求：\n' + JSON.stringify(oldPrompts) : '') + (attempt ? '\n请重新检查JSON、标题少于15、prompt少于150个混合计数单位；简短直接，不补充用户未提出的要求。' : ''), controller.signal, SYSTEM, async raw => {
+          if (controller.signal.aborted || disposed || !stillCurrent()) return
           if (raw.length) timing.firstTextMs ??= Date.now() - started
           const candidates = streamedCandidates(raw, settings.count, true)
           if (!candidates) return
@@ -452,7 +462,7 @@ export function apply(ctx, config) {
       }
       if (parsed === null) throw new Error(early ? '生成未完整结束；已完成的候选仍可使用' : '模型没有返回有效的摘要和候选句')
       if (early && (JSON.stringify(parsed.next.slice(0, early.next.length)) !== JSON.stringify(early.next) || JSON.stringify(parsed.titles.slice(0, early.titles.length)) !== JSON.stringify(early.titles))) throw new Error('模型返回了冲突的候选，已保留先前验证通过的一组')
-      if (controller.signal.aborted || disposed || selectPredictionSource(session).source?.seq !== source.seq) return
+      if (controller.signal.aborted || disposed || !stillCurrent()) return
 
       const payload = prediction(parsed)
       await publish(session, payload)
@@ -482,10 +492,14 @@ export function apply(ctx, config) {
       }
       return
     }
-    if (event?.type === 'turn/end') void generate(session, event.data?.turn)
+    if (event?.type === 'turn/end') {
+      const view = ctx.sessionProjections.stateOf(session, 'prompt-copilot')
+      if (running.get(session.id)?.manualDuringTurn || (view?.manualDuringTurn && view.turn === event.data?.turn)) return
+      void generate(session, event.data?.turn)
+    }
   })
 
-  void db.append({ t: 'boot', version: '0.4.2', at: Date.now(), pid: process.pid }).catch((e) => report(e))
+  void db.append({ t: 'boot', version: '0.5.0', at: Date.now(), pid: process.pid }).catch((e) => report(e))
   ctx.logger.info('prompt-copilot ready -> ' + db.path)
 }
 

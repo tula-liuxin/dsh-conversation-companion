@@ -183,7 +183,7 @@ window.__ModuleLoader__.load({
           const [height, setHeight] = useState(140)
           const list = useRef(null)
           const anchor = useRef(null)
-          const prompts = (view?.next ?? []).filter(text => typeof text === 'string' && text.trim()).slice(0, 3)
+          const prompts = (running && !live?.manualDuringTurn ? [] : view?.next ?? []).filter(text => typeof text === 'string' && text.trim()).slice(0, 3)
           const titleKey = JSON.stringify({ prompts, titles: view?.titles ?? [] })
           const repairedTitles = titleCache.get(titleKey)
           const needsTitles = prompts.some((prompt, i) => titleNeedsRepair(view?.titles?.[i], prompt))
@@ -205,7 +205,7 @@ window.__ModuleLoader__.load({
           const expanded = isExpanded(props.sessionId, view)
           const index = expanded ? Math.min(selected, Math.max(0, options.length - 1)) : 0
           const text = options[index]?.prompt ?? ''
-          const available = options.length > 0 && !draft && !running && !predictionsHidden
+          const available = options.length > 0 && !draft && !predictionsHidden
           const requestPrediction = () => {
             if (requesting.current?.sessionId === props.sessionId || live?.status === 'pending' || live?.candidatesPending || live?.summaryPending) return
             const request = { sessionId: props.sessionId }
@@ -230,6 +230,7 @@ window.__ModuleLoader__.load({
             observer.observe(list.current); measure()
             return () => observer.disconnect()
           }, [available])
+          const focusEditor = () => (list.current ?? anchor.current)?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')?.focus({ preventScroll: true })
           const dismiss = () => {
             const editor = list.current?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')
             setSelected(0)
@@ -284,7 +285,7 @@ window.__ModuleLoader__.load({
             return () => window.removeEventListener('keydown', onKey, true)
           }, [available, expanded, text, options.length, props.inputActions, props.sessionId, view, live, page, batches])
           useEffect(() => {
-            if ((!predictionsHidden && options.length) || draft || running) return
+            if ((!predictionsHidden && options.length) || draft) return
             const reopen = event => {
               if (!['Tab', 'Escape'].includes(event.key) || event.repeat || event.isComposing || event.keyCode === 229 || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
               const card = anchor.current?.closest('[data-composer-card]')
@@ -304,7 +305,7 @@ window.__ModuleLoader__.load({
             return () => window.removeEventListener('keydown', reopen, true)
           }, [predictionsHidden, draft, running, props.sessionId, options.length, live])
           if (!available) {
-            const status = !predictionsHidden && !draft && !running && !options.length
+            const status = !predictionsHidden && !draft && !options.length
               ? requestError || live?.error || (notice?.pending || live?.status === 'pending' ? '正在生成预测… Esc 关闭' : '') : ''
             if (status) return h('div', { ref: anchor, role: 'region', 'aria-label': '下一句预测状态', style: { position: 'absolute', bottom: '100%', left: 0, right: 0, padding: '7px 12px', fontSize: 12, background: 'var(--dsw-alias-bg-elevated, #fff)', border: '1px solid var(--dsw-alias-border-subtle, #ddd)', borderRadius: 8, pointerEvents: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
               h('span', { role: 'status' }, status), h('button', { type: 'button', style: { ...CSS.btn, padding: '2px 6px', fontSize: 11 }, onMouseDown: e => e.preventDefault(), onClick: () => setPredictionsHidden(true) }, '关闭 · Esc'))
@@ -312,14 +313,15 @@ window.__ModuleLoader__.load({
           }
           return h(React.Fragment, null,
             h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
-            h('div', { ref: list, className: 'pc-predictions', role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头或右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
+            h('div', { ref: list, className: 'pc-predictions', onMouseDown: e => { if (e.target?.closest?.('button,[role="option"]')) return; e.preventDefault(); focusEditor() }, role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头或右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
               h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : live?.status === 'pending' || live?.summaryPending ? '生成中' : '换一组') + ' · Tab 采用' : '↓ / → 更多 · Tab 采用 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
               live?.status === 'pending' ? h('div', { role: 'status', style: { fontSize: 12 } }, '正在生成新的一组，旧建议仍可查看…') : null,
+              live?.manualDuringTurn ? h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '基于触发时的上下文，主回复可能仍在更新') : null,
               live?.candidatesPending ? h('div', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '其余候选生成中，已完成的可采用') : null,
               (requestError || live?.error) ? h('div', { role: 'status', style: { fontSize: 12, color: '#b42318' } }, requestError || live.error) : null,
               ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
-                onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); list.current?.focus({ preventScroll: true }) },
+                onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); focusEditor() },
                 style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : 'transparent', cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },
                 h('div', { style: { fontWeight: i === index ? 600 : 400, lineHeight: '20px', overflowWrap: 'anywhere' } }, (i + 1) + '. ' + option.title),
                 i === index ? h('div', { style: { marginTop: 5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.6, fontWeight: 400 } }, option.prompt) : null))))
@@ -347,13 +349,18 @@ window.__ModuleLoader__.load({
             tracker.current.revision++
             clearTimeout(manualTimer.current); manualTimer.current = null
             clearTimeout(autoTimer.current)
-          }, [draft, props.sessionId, running])
-          const checkDraft = async (mode = 'basic') => {
+          }, [draft, props.sessionId])
+          useEffect(() => {
+            if (!running) return
+            clearTimeout(autoTimer.current)
+            if (!tracker.current.manual) { tracker.current.revision++; setResult(null) }
+          }, [running])
+          const checkDraft = async (mode = 'basic', manual = false) => {
             const state = tracker.current
-            if (latest.current.draft !== draft || latest.current.sessionId !== props.sessionId || latest.current.running || composing.current || !draft.trim()) return
+            if (latest.current.draft !== draft || latest.current.sessionId !== props.sessionId || (latest.current.running && !manual) || composing.current || !draft.trim()) return
             const revision = ++state.revision
-            state.added = 0; state.checked = draft
-            const base = { draft, sessionId: props.sessionId, mode }
+            state.added = 0; state.checked = draft; state.manual = manual
+            const base = { draft, sessionId: props.sessionId, mode, manual }
             if (draft.length > 12000) { setResult({ ...base, error: '输入超过 12000 字符，暂不检查' }); return }
             setResult({ ...base, pending: true })
             try {
@@ -361,7 +368,7 @@ window.__ModuleLoader__.load({
               if (!response.ok || response.value?.result?.kind !== 'success') throw new Error(response.value?.result?.text || '暂时无法检查输入')
               const { edits } = JSON.parse(response.value.result.text)
               if (!Array.isArray(edits)) throw new Error('纠错结果无效')
-              if (tracker.current !== state || state.revision !== revision || latest.current.draft !== draft || latest.current.sessionId !== props.sessionId || latest.current.running) return
+              if (tracker.current !== state || state.revision !== revision || latest.current.draft !== draft || latest.current.sessionId !== props.sessionId || (latest.current.running && !manual)) return
               setResult(edits.length ? { ...base, edits } : { ...base, clean: true })
             } catch (error) {
               if (tracker.current === state && state.revision === revision) setResult({ ...base, error: error.message })
@@ -376,7 +383,7 @@ window.__ModuleLoader__.load({
             while (prefix < old.length && prefix < next.length && old[prefix] === next[prefix]) prefix++
             while (suffix < old.length-prefix && suffix < next.length-prefix && old[old.length-1-suffix] === next[next.length-1-suffix]) suffix++
             state.added += next.slice(prefix, next.length-suffix).filter(c => !/\s/u.test(c)).length
-            state.text = draft
+            state.text = draft; state.manual = false
             const revision = ++state.revision
             setResult(null)
             if (!draft) { state.added = 0; state.checked = '' }
@@ -388,14 +395,14 @@ window.__ModuleLoader__.load({
             }
             autoTimer.current = setTimeout(check, state.added >= 60 ? 5000 : 15000)
             return () => clearTimeout(autoTimer.current)
-          }, [draft, props.sessionId, running])
+          }, [draft, props.sessionId])
 
           useEffect(() => {
             if (!result?.clean) return
             const timer = setTimeout(() => setResult(null), 2500)
             return () => clearTimeout(timer)
           }, [result])
-          const visible = result && result.draft === draft && result.sessionId === props.sessionId && !running
+          const visible = result && result.draft === draft && result.sessionId === props.sessionId && (!running || result.manual)
           const dismiss = () => { tracker.current.revision++; clearTimeout(manualTimer.current); manualTimer.current = null; clearTimeout(autoTimer.current); setResult(null) }
           const accept = () => {
             if (!visible || !result.edits?.length || latest.current.draft !== result.draft) return
@@ -411,16 +418,16 @@ window.__ModuleLoader__.load({
               if (event.repeat || event.isComposing || composing.current || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return
               const card = anchor.current?.closest('[data-composer-card]')
               if (!card || !(anchor.current?.contains(event.target) || (event.target?.isContentEditable && event.target.closest('[data-composer-card]') === card))) return
-              if (event.key === 'Tab' && event.shiftKey && draft.trim() && !running) {
+              if (event.key === 'Tab' && event.shiftKey && draft.trim()) {
                 event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
                 clearTimeout(autoTimer.current)
                 tracker.current.revision++
                 setResult(null)
                 if (manualTimer.current !== null) {
                   clearTimeout(manualTimer.current); manualTimer.current = null
-                  void checkDraft('deep')
+                  void checkDraft('deep', true)
                 } else {
-                  manualTimer.current = setTimeout(() => { manualTimer.current = null; void checkDraft('basic') }, 450)
+                  manualTimer.current = setTimeout(() => { manualTimer.current = null; void checkDraft('basic', true) }, 450)
                 }
                 return
               }

@@ -16,3 +16,11 @@ test('prediction source is current and refuses empty or active conversations',()
  log.push(user(8));assert.match(selectPredictionSource({log}).error,/等待/);
  assert.match(selectPredictionSource({log:[user(1,'plugin'),end(2,1)]}).error,/先发送/);
 });
+
+test('running prediction is explicit and anchored to the latest user turn',()=>{
+ const log=[start(1,1),user(2)];
+ assert.ok(selectPredictionSource({log}).error);
+ const selected=selectPredictionSource({log},true);assert.equal(selected.duringTurn,true);assert.equal(selected.source.seq,2);assert.equal(selected.startSeq,1);
+ log.push(reply(3,1,'目前的初步分析'));
+ const next=selectPredictionSource({log},true);assert.equal(next.source.seq,2);assert.equal(next.userOnly,false);
+});
