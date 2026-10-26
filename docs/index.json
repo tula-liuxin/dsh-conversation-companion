@@ -124,6 +124,37 @@
           }
         }
       ]
+    },
+    {
+      "name": "dsh-dev-context",
+      "title": {
+        "en": "DSH Dev Context",
+        "zh": "DSH 开发上下文"
+      },
+      "description": {
+        "en": "Keeps a small, version-stamped index of how to develop for the installed DeepSeek Harness, rebuilt when the local DSH version changes. Other AI harnesses read the bundled skill to get started.",
+        "zh": "把本机安装的 DSH 投影成一份带版本戳的小索引，DSH 版本变化时自动重建；其他 AI harness 读附带的 skill 即可上手开发。"
+      },
+      "icon": "dev-context-icon.svg",
+      "author": "Leo / tula-liuxin",
+      "homepage": "https://github.com/tula-liuxin/dsh-dev-context#readme",
+      "repository": {
+        "url": "https://github.com/tula-liuxin/dsh-dev-context"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1793054622,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-dev-context",
+            "commit": "20a79ade4ceb0b3c7952b412540aaefbf5efa7a4"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        }
+      ]
     }
   ]
 }
