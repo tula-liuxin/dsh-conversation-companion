@@ -223,8 +223,8 @@
         "zh": "我的 UI 子插件"
       },
       "description": {
-        "en": "Container bundle for composable DSH UI sub-plugins: toggle, compose and remove them like plugins. The first sub-plugin expands a floating list of pinned sessions inside the left column.",
-        "zh": "可组合 DSH 界面子插件的容器：像插件一样开关、组合、卸载。第一个子插件在左侧栏就地展开置顶会话浮层，点一下即可连续切换。"
+        "en": "Container bundle for composable DSH UI sub-plugins: toggle, compose and remove them like plugins. The bundled Pinned/Unread sub-plugin expands a floating list inside the left column with pinned sessions first and background-finished unread sessions after them.",
+        "zh": "可组合 DSH 界面子插件的容器：像插件一样开关、组合、卸载。内置「置顶/未读」子插件——点侧栏入口就在左侧栏就地展开浮层，置顶会话在前、后台跑完未读的在后，点一下即切换。"
       },
       "icon": "my-dsh-ui-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -233,6 +233,18 @@
         "url": "https://github.com/tula-liuxin/my-dsh-ui"
       },
       "versions": [
+        {
+          "version": "0.1.1",
+          "publishTimestamp": 1793079541,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/my-dsh-ui",
+            "commit": "b7f16d5a27cc158e27dfdde56d6f79483e00aa43"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.1.0",
           "publishTimestamp": 1793078805,
