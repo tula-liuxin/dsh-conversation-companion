@@ -27,7 +27,7 @@ Esc in compact mode hides predictions completely across sessions and restarts on
 
 ## Draft correction
 
-After at least 60 new non-whitespace characters since the last check, a 5-second typing pause triggers a check. Smaller edits, including deletions, use a 15-second pause. Typing resets the idle timer; unchanged or just-accepted drafts are not rechecked. Pasting is coalesced into one check. A panel above the editor shows red strikethrough deletions and green underlined additions. Tab accepts without sending; Esc dismisses the current check. Further edits can trigger a new check. Further edits invalidate stale results. Corrections preserve intent and tone without adding requirements. Drafts over 12,000 characters are skipped. This uses additional model calls and transmits unsent draft text to the configured provider; see PRIVACY.md.
+Draft checks are manual only: Shift+Tab requests a conservative check; press Tab twice within 450ms while holding Shift for a deep rewrite. Typing, pasting, deleting and idle time never trigger checks. Red strikethrough marks deletions and green underlines mark additions. Tab accepts without sending; Esc dismisses. Editing invalidates stale suggestions without requesting another check. Drafts over 12,000 characters are skipped. Manual checks use additional model calls and transmit unsent draft text to the configured provider; see PRIVACY.md.
 
 ### Manual checks
 

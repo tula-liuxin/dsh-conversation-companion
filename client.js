@@ -389,7 +389,6 @@ window.__ModuleLoader__.load({
           const latest = useRef(null)
           const composing = useRef(false)
           const manualTimer = useRef(null)
-          const autoTimer = useRef(null)
           latest.current = { draft, sessionId: props.sessionId, running }
           useEffect(() => {
             const belongs = e => e.target?.closest?.('[data-composer-card]') === anchor.current?.closest('[data-composer-card]')
@@ -402,11 +401,9 @@ window.__ModuleLoader__.load({
           useEffect(() => () => {
             tracker.current.revision++
             clearTimeout(manualTimer.current); manualTimer.current = null
-            clearTimeout(autoTimer.current)
           }, [draft, props.sessionId])
           useEffect(() => {
             if (!running) return
-            clearTimeout(autoTimer.current)
             if (!tracker.current.manual) { tracker.current.revision++; setResult(null) }
           }, [running])
           const checkDraft = async (mode = 'basic', manual = false) => {
@@ -432,23 +429,11 @@ window.__ModuleLoader__.load({
           useEffect(() => {
             let state = tracker.current
             if (state.sessionId !== props.sessionId) state = tracker.current = { sessionId: props.sessionId, text: draft, checked: draft, added: 0, revision: state.revision + 1 }
-            const old = Array.from(state.text), next = Array.from(draft)
-            let prefix = 0, suffix = 0
-            while (prefix < old.length && prefix < next.length && old[prefix] === next[prefix]) prefix++
-            while (suffix < old.length-prefix && suffix < next.length-prefix && old[old.length-1-suffix] === next[next.length-1-suffix]) suffix++
-            state.added += next.slice(prefix, next.length-suffix).filter(c => !/\s/u.test(c)).length
+            // Editing only invalidates stale suggestions. Checks are explicitly
+            // requested by Shift+Tab; no idle or character-count scheduler.
             state.text = draft; state.manual = false
-            const revision = ++state.revision
+            state.revision++
             setResult(null)
-            if (!draft) { state.added = 0; state.checked = '' }
-            if (running || !draft.trim() || draft.trim() === state.checked.trim()) return
-            const check = () => {
-              if (state.revision !== revision) return
-              if (composing.current) { autoTimer.current = setTimeout(check, 300); return }
-              void checkDraft()
-            }
-            autoTimer.current = setTimeout(check, state.added >= 60 ? 5000 : 15000)
-            return () => clearTimeout(autoTimer.current)
           }, [draft, props.sessionId])
 
           useEffect(() => {
@@ -457,7 +442,7 @@ window.__ModuleLoader__.load({
             return () => clearTimeout(timer)
           }, [result])
           const visible = result && result.draft === draft && result.sessionId === props.sessionId && (!running || result.manual)
-          const dismiss = () => { tracker.current.revision++; clearTimeout(manualTimer.current); manualTimer.current = null; clearTimeout(autoTimer.current); setResult(null) }
+          const dismiss = () => { tracker.current.revision++; clearTimeout(manualTimer.current); manualTimer.current = null; setResult(null) }
           const accept = () => {
             if (!visible || !result.edits?.length || latest.current.draft !== result.draft) return
             let text = draft
@@ -474,7 +459,6 @@ window.__ModuleLoader__.load({
               if (!card || !(anchor.current?.contains(event.target) || (event.target?.isContentEditable && event.target.closest('[data-composer-card]') === card))) return
               if (event.key === 'Tab' && event.shiftKey && draft.trim()) {
                 event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
-                clearTimeout(autoTimer.current)
                 tracker.current.revision++
                 setResult(null)
                 if (manualTimer.current !== null) {

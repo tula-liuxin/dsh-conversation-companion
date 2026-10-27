@@ -1,6 +1,6 @@
 {
   "name": "dsh-conversation-companion",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "private": false,
   "description": "简短的下一句预测、输入笔误纠正和通俗摘要；支持键盘采用、候选历史与可编辑浮窗。",
   "type": "module",
