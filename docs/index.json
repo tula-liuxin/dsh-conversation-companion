@@ -107,6 +107,19 @@
       },
       "versions": [
         {
+          "version": "0.1.7",
+          "publishTimestamp": 1793113649,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-center",
+            "commit": "eed640a309338bb988d467a3fbb6b3d31c382192",
+            "path": "plugin"
+          },
+          "engines": {
+            "dsh": "0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.1.4",
           "publishTimestamp": 1793053011,
           "source": {
