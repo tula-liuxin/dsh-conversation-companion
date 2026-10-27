@@ -318,6 +318,36 @@
           }
         }
       ]
-    }
-  ]
+    },
+    {
+      "name": "leo-status",
+      "title": {
+        "en": "Leo Status",
+        "zh": "Leo 状态"
+      },
+      "description": {
+        "en": "A read-only TODO board aggregated from Obsidian notes and DSH sessions. This machine can be the hub; other devices install the same plugin and join with a password, and the board merges and distinguishes devices.",
+        "zh": "把 Obsidian 笔记与 DSH 会话里的 TODO 汇总成一个只读看板。本机可作中心，其他设备装同一插件后用密码加入，看板按设备区分并合并展示。"
+      },
+      "icon": "leo-status-icon.svg",
+      "author": "Leo / tula-liuxin",
+      "homepage": "https://github.com/tula-liuxin/leo-status#readme",
+      "repository": {
+        "url": "https://github.com/tula-liuxin/leo-status"
+      },
+      "versions": [
+        {
+          "version": "0.2.0",
+          "publishTimestamp": 1793091757,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "19ed0642474d6d29fd53a124b07c78e8683b323f"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        }
+      ]
+    }  ]
 }
