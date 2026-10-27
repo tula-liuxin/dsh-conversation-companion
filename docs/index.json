@@ -338,8 +338,8 @@
         "zh": "Leo 状态"
       },
       "description": {
-        "en": "A TODO board aggregated from Obsidian notes and DSH sessions, with automatic vault discovery (checkbox/#todo/frontmatter rules plus incremental cache). Session todos are filtered and only enter the board after you accept them in the built-in steward agent Yuan, who also keeps memory, reminders and categorized red-dot signals. Local Markdown todos can be checked/unchecked, cancelled/restored and deleted inline; this machine can be the hub and other devices join with a password.",
-        "zh": "把 Obsidian 笔记与 DSH 会话里的 TODO 汇总成一个看板：自动发现 Obsidian 库（复选框 / #todo / frontmatter 规则 + 增量缓存），会话 todo 先精筛、只有你在内建管家「阿源」里点接受才进看板；阿源还会记对话与事实、加提醒，并给分类红点信号。本地 Markdown todo 可直接勾选/取消勾选、作废/启用/删除。本机可作中心，其他设备用密码加入。"
+        "en": "A TODO board aggregated from Obsidian notes and DSH sessions, with automatic vault discovery (checkbox/#todo/frontmatter rules plus incremental cache). Session todos never auto-enter the board: they are filtered into Yuan suggestions and only appear after you accept them, with subagent sessions skipped. Yuan is a built-in steward with a rich Markdown chat, memory, reminders and categorized red-dot signals. Local Markdown todos can be checked/unchecked, cancelled/restored and deleted inline; this machine can be the hub and other devices join with a password.",
+        "zh": "把 Obsidian 笔记与 DSH 会话里的 TODO 汇总成一个看板：自动发现 Obsidian 库（复选框 / #todo / frontmatter 规则 + 增量缓存）。会话 todo 不再自动进看板——只精筛成阿源建议，你在阿源里点接受后才出现，子代理会话默认跳过。阿源有接近 DSH 的 Markdown 对话、记忆、提醒与分类红点信号。本地 Markdown todo 可直接勾选/取消勾选、作废/启用/删除。本机可作中心，其他设备用密码加入。"
       },
       "icon": "leo-status-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -348,6 +348,18 @@
         "url": "https://github.com/tula-liuxin/leo-status"
       },
       "versions": [
+        {
+          "version": "0.4.1",
+          "publishTimestamp": 1793103428,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "896485a44a7f4578b3c3d17ffb82cbfe133a93fa"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.4.0",
           "publishTimestamp": 1793101317,
