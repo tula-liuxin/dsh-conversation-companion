@@ -294,7 +294,8 @@ window.__ModuleLoader__.load({
           }
           // Adopt a candidate into the draft without sending it. Clicking is the
           // primary gesture; Tab stays as an accelerator for the selected one.
-          const accept = (optionIndex) => {
+          const tap = useRef(null)
+          const accept = (optionIndex, focus = true) => {
             if (!available || !props.inputActions) return false
             const value = options[optionIndex ?? index]?.prompt ?? text
             if (!value) return false
@@ -302,7 +303,7 @@ window.__ModuleLoader__.load({
             const editor = list.current?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')
             props.inputActions.setDraft(value)
             props.inputActions.persistDraft()
-            editor?.focus({ preventScroll: true })
+            if (focus) editor?.focus({ preventScroll: true })
             return true
           }
           useEffect(() => {
@@ -380,7 +381,26 @@ window.__ModuleLoader__.load({
               live?.candidatesPending ? h('div', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '其余候选生成中，已完成的可采用') : null,
               (requestError || live?.error) ? h('div', { role: 'status', style: { fontSize: 12, color: '#b42318' } }, requestError || live.error) : null,
               ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index, title: '点击采用：只填入草稿，不发送',
-                onMouseDown: (e) => e.preventDefault(), onClick: () => { accept(i) },
+                onPointerDown: e => {
+                  tap.current = null
+                  if (e.pointerType !== 'touch') return
+                  e.preventDefault(); e.stopPropagation()
+                  tap.current = { id: e.pointerId, x: e.clientX, y: e.clientY, index: i }
+                },
+                onPointerCancel: () => { if (tap.current) tap.current.cancelled = true },
+                onPointerUp: e => {
+                  const t = tap.current
+                  if (e.pointerType !== 'touch' || !t || t.id !== e.pointerId) return
+                  e.preventDefault(); e.stopPropagation()
+                  t.done = true
+                  if (!t.cancelled && t.index === i && Math.hypot(e.clientX-t.x, e.clientY-t.y) <= 10) accept(i, false)
+                },
+                onMouseDown: e => { e.preventDefault(); e.stopPropagation() },
+                onClick: e => {
+                  e?.stopPropagation()
+                  if (tap.current) { e?.preventDefault(); return }
+                  accept(i)
+                },
                 style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : undefined, cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },
                 h('div', { style: { fontWeight: i === index ? 600 : 400, lineHeight: '20px', overflowWrap: 'anywhere' } }, (i + 1) + '. ' + option.title),
                 i === index ? h('div', { style: { marginTop: 5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.6, fontWeight: 400 } }, option.prompt) : null))))

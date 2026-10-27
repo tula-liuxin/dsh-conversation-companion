@@ -73,5 +73,14 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  key('ArrowRight');render();assert.equal(count(),3);
  beforeClick=inserted.length;beforeFocus=focuses;all(tree,n=>n.props.role==='option')[2].props.onClick();
  assert.equal(inserted.length,beforeClick+1);assert.equal(inserted.at(-1),'第三条');assert.equal(focuses,beforeFocus+1);
+ // Touch adopts once without keyboard focus; a swipe/cancel never adopts.
+ const option=all(tree,n=>n.props.role==='option')[1];
+ const touch=(x=10,y=10)=>({pointerType:'touch',pointerId:7,clientX:x,clientY:y,preventDefault(){},stopPropagation(){}});
+ beforeClick=inserted.length;beforeFocus=focuses;
+ option.props.onPointerDown(touch());option.props.onPointerUp(touch());option.props.onClick();
+ assert.equal(inserted.length,beforeClick+1);assert.equal(inserted.at(-1),'第二条');assert.equal(focuses,beforeFocus);
+ beforeClick=inserted.length;option.props.onPointerDown(touch());option.props.onPointerUp(touch(10,60));option.props.onClick();assert.equal(inserted.length,beforeClick);
+ option.props.onPointerDown(touch());option.props.onPointerCancel();option.props.onPointerUp(touch());option.props.onClick();assert.equal(inserted.length,beforeClick);
+ option.props.onPointerDown({pointerType:'mouse'});option.props.onClick();assert.equal(inserted.length,beforeClick+1);
  cleanup.forEach(f=>f?.());
 });
