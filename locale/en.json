@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Conversation Companion",
-    "description": "Next-message suggestions, conservative draft corrections, and plain-language summaries. Review red/green edits, accept with Tab, browse suggestion history and edit floating summaries."
+    "description": "Next-message suggestions, conservative draft corrections, and plain-language summaries. Review red/green edits, accept by click or Tab, browse suggestion history and edit floating summaries."
   }
 }

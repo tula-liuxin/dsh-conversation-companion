@@ -2,6 +2,12 @@
 
 Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also upgraded and version-checked at 0.2.1-rc.3.
 
+## 0.5.3 点击采用验证（2026-10-27）
+
+- 23 项 Node 测试与 JavaScript 语法检查通过。新增覆盖：折叠态点击候选即填入草稿；展开态点击非选中候选采用该条；采用后焦点回到输入框；点击标题/空白仍只交回焦点。
+- 采用仍只写入草稿并持久化，不发送、不打断主任务；Tab、↑/↓、←/→、Esc 与原行为一致。
+- 用桌面自带 CLI 把 0.5.3 tarball 装入 Windows Desktop 0.2.1-rc.3 的 desktop profile，安装后 client.js 与 index.js 的 SHA-256 与源码一致。
+
 ## 0.6.0-beta.4 validation
 
 - Six Node tests and syntax checks pass, including lossless JSON round-trips for legacy candidates without titles and pending/error transitions.

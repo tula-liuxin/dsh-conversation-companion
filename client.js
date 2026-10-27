@@ -292,10 +292,15 @@ window.__ModuleLoader__.load({
             setExpanded(props.sessionId, view, false)
             editor?.focus({ preventScroll: true })
           }
-          const accept = () => {
+          // Adopt a candidate into the draft without sending it. Clicking is the
+          // primary gesture; Tab stays as an accelerator for the selected one.
+          const accept = (optionIndex) => {
             if (!available || !props.inputActions) return false
+            const value = options[optionIndex ?? index]?.prompt ?? text
+            if (!value) return false
+            if (optionIndex !== undefined) setSelected(optionIndex)
             const editor = list.current?.closest('[data-composer-card]')?.querySelector('[contenteditable="true"]')
-            props.inputActions.setDraft(text)
+            props.inputActions.setDraft(value)
             props.inputActions.persistDraft()
             editor?.focus({ preventScroll: true })
             return true
@@ -366,17 +371,17 @@ window.__ModuleLoader__.load({
             return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
           }
           return h(React.Fragment, null,
-            h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}`),
-            h('div', { ref: list, className: 'pc-predictions', onMouseDown: e => { if (e.target?.closest?.('button,[role="option"]')) return; e.preventDefault(); focusEditor() }, role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，Tab采用' : '下一句预测，下箭头或右箭头展开更多，Tab采用', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
+            h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}.pc-predictions [role="option"]:hover{background:var(--dsw-alias-bg-subtle, #f5f5f8)}`),
+            h('div', { ref: list, className: 'pc-predictions', onMouseDown: e => { if (e.target?.closest?.('button,[role="option"]')) return; e.preventDefault(); focusEditor() }, role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，点击候选或按 Tab 采用' : '下一句预测，点击候选采用，下箭头或右箭头展开更多', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : live?.status === 'pending' || live?.summaryPending ? '生成中' : '换一组') + ' · Tab 采用' : '↓ / → 更多 · Tab 采用 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : live?.status === 'pending' || live?.summaryPending ? '生成中' : '换一组') + ' · 点击或 Tab 采用' : '点击或 Tab 采用 · ↓ / → 更多 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
               live?.status === 'pending' ? h('div', { role: 'status', style: { fontSize: 12 } }, '正在生成新的一组，旧建议仍可查看…') : null,
               live?.manualDuringTurn ? h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '基于触发时的上下文，主回复可能仍在更新') : null,
               live?.candidatesPending ? h('div', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '其余候选生成中，已完成的可采用') : null,
               (requestError || live?.error) ? h('div', { role: 'status', style: { fontSize: 12, color: '#b42318' } }, requestError || live.error) : null,
-              ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index,
-                onMouseDown: (e) => e.preventDefault(), onClick: () => { setSelected(i); focusEditor() },
-                style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : 'transparent', cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },
+              ...(expanded ? options : options.slice(0, 1)).map((option, i) => h('div', { key: i, id: 'pc-option-' + props.sessionId + '-' + i, role: 'option', 'aria-selected': i === index, title: '点击采用：只填入草稿，不发送',
+                onMouseDown: (e) => e.preventDefault(), onClick: () => { accept(i) },
+                style: { padding: '7px 10px', borderRadius: 8, border: i === index ? '1px solid var(--dsw-alias-border-subtle, #dedee7)' : '1px solid transparent', background: i === index ? 'var(--dsw-alias-bg-subtle, #f5f5f8)' : undefined, cursor: 'pointer', color: i === index ? 'var(--dsw-alias-text-primary, #333)' : 'var(--dsw-alias-text-secondary, #888)' } },
                 h('div', { style: { fontWeight: i === index ? 600 : 400, lineHeight: '20px', overflowWrap: 'anywhere' } }, (i + 1) + '. ' + option.title),
                 i === index ? h('div', { style: { marginTop: 5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.6, fontWeight: 400 } }, option.prompt) : null))))
         }
@@ -389,7 +394,6 @@ window.__ModuleLoader__.load({
           const latest = useRef(null)
           const composing = useRef(false)
           const manualTimer = useRef(null)
-          const autoTimer = useRef(null)
           latest.current = { draft, sessionId: props.sessionId, running }
           useEffect(() => {
             const belongs = e => e.target?.closest?.('[data-composer-card]') === anchor.current?.closest('[data-composer-card]')
@@ -402,11 +406,9 @@ window.__ModuleLoader__.load({
           useEffect(() => () => {
             tracker.current.revision++
             clearTimeout(manualTimer.current); manualTimer.current = null
-            clearTimeout(autoTimer.current)
           }, [draft, props.sessionId])
           useEffect(() => {
             if (!running) return
-            clearTimeout(autoTimer.current)
             if (!tracker.current.manual) { tracker.current.revision++; setResult(null) }
           }, [running])
           const checkDraft = async (mode = 'basic', manual = false) => {
@@ -432,23 +434,11 @@ window.__ModuleLoader__.load({
           useEffect(() => {
             let state = tracker.current
             if (state.sessionId !== props.sessionId) state = tracker.current = { sessionId: props.sessionId, text: draft, checked: draft, added: 0, revision: state.revision + 1 }
-            const old = Array.from(state.text), next = Array.from(draft)
-            let prefix = 0, suffix = 0
-            while (prefix < old.length && prefix < next.length && old[prefix] === next[prefix]) prefix++
-            while (suffix < old.length-prefix && suffix < next.length-prefix && old[old.length-1-suffix] === next[next.length-1-suffix]) suffix++
-            state.added += next.slice(prefix, next.length-suffix).filter(c => !/\s/u.test(c)).length
+            // Editing only invalidates stale suggestions. Checks are explicitly
+            // requested by Shift+Tab; no idle or character-count scheduler.
             state.text = draft; state.manual = false
-            const revision = ++state.revision
+            state.revision++
             setResult(null)
-            if (!draft) { state.added = 0; state.checked = '' }
-            if (running || !draft.trim() || draft.trim() === state.checked.trim()) return
-            const check = () => {
-              if (state.revision !== revision) return
-              if (composing.current) { autoTimer.current = setTimeout(check, 300); return }
-              void checkDraft()
-            }
-            autoTimer.current = setTimeout(check, state.added >= 60 ? 5000 : 15000)
-            return () => clearTimeout(autoTimer.current)
           }, [draft, props.sessionId])
 
           useEffect(() => {
@@ -457,7 +447,7 @@ window.__ModuleLoader__.load({
             return () => clearTimeout(timer)
           }, [result])
           const visible = result && result.draft === draft && result.sessionId === props.sessionId && (!running || result.manual)
-          const dismiss = () => { tracker.current.revision++; clearTimeout(manualTimer.current); manualTimer.current = null; clearTimeout(autoTimer.current); setResult(null) }
+          const dismiss = () => { tracker.current.revision++; clearTimeout(manualTimer.current); manualTimer.current = null; setResult(null) }
           const accept = () => {
             if (!visible || !result.edits?.length || latest.current.draft !== result.draft) return
             let text = draft
@@ -474,7 +464,6 @@ window.__ModuleLoader__.load({
               if (!card || !(anchor.current?.contains(event.target) || (event.target?.isContentEditable && event.target.closest('[data-composer-card]') === card))) return
               if (event.key === 'Tab' && event.shiftKey && draft.trim()) {
                 event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.()
-                clearTimeout(autoTimer.current)
                 tracker.current.revision++
                 setResult(null)
                 if (manualTimer.current !== null) {

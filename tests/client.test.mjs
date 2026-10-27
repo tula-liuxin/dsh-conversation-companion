@@ -65,9 +65,13 @@ test('compact default, Right expansion, regeneration, history and scope guards',
  draft='';empty=true;history=[];commandError='';mainRunning=true;render();baseline=requests;await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,baseline);
  key('Tab');await new Promise(resolve=>setImmediate(resolve));assert.equal(requests,baseline+1);
  empty=false;manualDuringTurn=true;phase='ready';render();assert.equal(count(),1);key('Tab');assert.equal(inserted.at(-1),'第一条');
- // Blank/header clicks and option clicks focus the real editable surface.
+ // Blank/header clicks keep composer focus; clicking a candidate adopts it directly.
  let beforeFocus=focuses;const listNode=all(tree,n=>n.props.role==='listbox')[0];listNode.props.onMouseDown({target:{closest:()=>null},preventDefault(){}});assert.equal(focuses,beforeFocus+1);
  beforeFocus=focuses;listNode.props.onMouseDown({target:{closest:()=>({})},preventDefault(){throw Error('button must keep its own action')}});assert.equal(focuses,beforeFocus);
- all(tree,n=>n.props.role==='option')[0].props.onClick();assert.equal(focuses,beforeFocus+1);
+ let beforeClick=inserted.length;all(tree,n=>n.props.role==='option')[0].props.onClick();assert.equal(inserted.length,beforeClick+1);assert.equal(inserted.at(-1),'第一条');assert.equal(focuses,beforeFocus+1);
+ // Expanded: clicking any candidate adopts that candidate, no Tab needed.
+ key('ArrowRight');render();assert.equal(count(),3);
+ beforeClick=inserted.length;beforeFocus=focuses;all(tree,n=>n.props.role==='option')[2].props.onClick();
+ assert.equal(inserted.length,beforeClick+1);assert.equal(inserted.at(-1),'第三条');assert.equal(focuses,beforeFocus+1);
  cleanup.forEach(f=>f?.());
 });
