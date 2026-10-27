@@ -203,6 +203,37 @@
           }
         }
       ]
+    },
+    {
+      "name": "my-dsh-ui",
+      "title": {
+        "en": "My DSH UI",
+        "zh": "我的 UI 子插件"
+      },
+      "description": {
+        "en": "Container bundle for composable DSH UI sub-plugins: toggle, compose and remove them like plugins. The first sub-plugin expands a floating list of pinned sessions inside the left column.",
+        "zh": "可组合 DSH 界面子插件的容器：像插件一样开关、组合、卸载。第一个子插件在左侧栏就地展开置顶会话浮层，点一下即可连续切换。"
+      },
+      "icon": "my-dsh-ui-icon.svg",
+      "author": "Leo / tula-liuxin",
+      "homepage": "https://github.com/tula-liuxin/my-dsh-ui#readme",
+      "repository": {
+        "url": "https://github.com/tula-liuxin/my-dsh-ui"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1793078805,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/my-dsh-ui",
+            "commit": "ec825dc885c57de8d052cf1509f33f335237ad7a"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        }
+      ]
     }
   ]
 }
