@@ -67,7 +67,36 @@ window.__ModuleLoader__.load({
     }
 
 
-    function ReviewRecord({ node }) {
+    // Review requests between two user messages belong to the same input round.
+    // Keep the source command nodes intact; only their presentation is grouped.
+    function reviewRound(snapshot, current) {
+      let batch = [], found = false
+      for (const key of snapshot.order) {
+        const view = snapshot.nodes.get(key)
+        if (view?.kind === 'user') {
+          if (found) break
+          batch = []
+        }
+        if (view?.kind === 'command' && view.data?.name === 'companion-review') {
+          batch.push(view.data)
+          if (view.data.commandId === current.commandId) found = true
+        }
+      }
+      return JSON.stringify(found ? batch : [current])
+    }
+    function ReviewRound({ node, useChat }) {
+      const serialized = useChat ? useChat(snapshot => reviewRound(snapshot, node)) : JSON.stringify([node])
+      const records = JSON.parse(serialized)
+      if (records[0]?.commandId !== node.commandId) return h('span', { className: 'pc-review-hidden', hidden: true })
+      return h('div', { className: 'pc-review-round' },
+        h('style', null, '[data-chat-flow-kind="command"]:has(.pc-review-hidden){display:none!important}[data-chat-flow-kind="command"]:has(.pc-review-round){margin-block:4px!important}.pc-review-round summary{user-select:none}.pc-review-round details details{margin:0!important}'),
+        h('details', { key: node.commandId || node.seq, style: { fontSize: 12, lineHeight: 1.5 } },
+          h('summary', { style: { cursor: 'pointer', padding: '2px 0', color: 'var(--dsw-alias-text-secondary, #777)' } }, `输入检查 · ${records.length} 次`),
+          h('div', { style: { paddingLeft: 12, borderLeft: '1px solid var(--dsw-alias-border-subtle, #ddd)', margin: '4px 0' } },
+            records.map((record, i) => h(ReviewRecord, { key: record.commandId || record.seq, node: record, number: i + 1 })))))
+    }
+
+    function ReviewRecord({ node, number }) {
       const outcome = node.outcome
       let result = null
       try { result = JSON.parse(outcome?.text || '') } catch {}
@@ -76,15 +105,15 @@ window.__ModuleLoader__.load({
       const label = deep ? '深度改写' : '输入检查'
       const status = !outcome ? '检查中' : outcome.kind === 'error' ? '未完成' : result ? edits.length ? `${edits.length} 处建议` : '无需修改' : '查看结果'
       const muted = 'var(--dsw-alias-text-secondary, #777)'
-      const section = { marginTop: 10, padding: 12, borderRadius: 8, background: 'var(--dsw-alias-bg-subtle, #f7f7f8)', overflowWrap: 'anywhere' }
-      return h('details', { key: node.commandId || node.seq, style: { fontSize: 13, lineHeight: 1.65, margin: '6px 0', color: 'var(--dsw-alias-text-primary, #222)' } },
-        h('summary', { style: { cursor: 'pointer', color: muted, padding: '4px 0' } }, `${label} · ${status}`),
+      const section = { marginTop: 4, padding: 8, borderRadius: 8, background: 'var(--dsw-alias-bg-subtle, #f7f7f8)', overflowWrap: 'anywhere' }
+      return h('details', { key: node.commandId || node.seq, style: { fontSize: 12, lineHeight: 1.5, margin: '2px 0', color: 'var(--dsw-alias-text-primary, #222)' } },
+        h('summary', { style: { cursor: 'pointer', color: muted, padding: '2px 0' } }, `${number ? number + '. ' : ''}${label} · ${status}`),
         h('div', { style: section },
           h('div', { style: { color: muted, marginBottom: 8 } }, deep ? '结合上下文提出更积极的改写，可能调整表达方向。' : '检查笔误、歧义和明显的表达问题。'),
           h('div', { style: { color: muted } }, '这是当时生成的建议记录，不代表你已采用。'),
           !outcome ? h('p', { role: 'status' }, '正在检查，完成后可在这里查看建议。') :
           outcome.kind === 'error' ? h('p', null, outcome.text || '检查未完成，请稍后重试。') :
-          result ? edits.length ? edits.map((edit, i) => h('section', { key: i, style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--dsw-alias-border-subtle, #ddd)' } },
+          result ? edits.length ? edits.map((edit, i) => h('section', { key: i, style: { marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--dsw-alias-border-subtle, #ddd)' } },
             h('strong', null, `建议 ${i + 1}`),
             h('div', null, h('span', { style: { color: muted } }, '修改前：'), h('del', { style: { color: '#b42318', whiteSpace: 'pre-wrap' } }, edit.before || '（空）')),
             h('div', null, h('span', { style: { color: muted } }, '建议改为：'), h('ins', { style: { color: '#067647', whiteSpace: 'pre-wrap', textDecoration: 'none' } }, edit.after || '（删除这段）')),
@@ -508,7 +537,7 @@ window.__ModuleLoader__.load({
         }
         // Depend on the actual child declaration, not its parent before children exist.
         // sessionId/useProjection/useInput/inputActions are standard slot props.
-        ctx.slots.inject('conversation.chat.commandview', () => ctx.slots.register({ name: 'conversation.chat.commandview', key: 'companion-review' }, ReviewRecord))
+        ctx.slots.inject('conversation.chat.commandview', () => ctx.slots.register({ name: 'conversation.chat.commandview', key: 'companion-review' }, ReviewRound))
         ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({ name: 'conversation.input.overlay', id: 'copilot-ghost', order: 5 }, Suggestions))
         ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({ name: 'conversation.input.overlay', id: 'copilot-review', order: 6 }, DraftReview))
         ctx.slots.inject('conversation.input.left', () => ctx.slots.register({ name: 'conversation.input.left', id: 'copilot-wand', order: 5 }, SummaryButton))
