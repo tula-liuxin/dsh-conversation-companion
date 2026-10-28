@@ -426,11 +426,11 @@
       "versions": [
         {
           "version": "1.0.0",
-          "publishTimestamp": 1793169326,
+          "publishTimestamp": 1793170882,
           "source": {
             "type": "git",
             "url": "https://github.com/tula-liuxin/leo-status",
-            "commit": "c7d2bb32cbc8a871416ad92b246b005a556934a3"
+            "commit": "ad23c391ada7dd216e7ee28e546b65c09b571090"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.3"
@@ -625,11 +625,11 @@
       "versions": [
         {
           "version": "2.0.0",
-          "publishTimestamp": 1793169326,
+          "publishTimestamp": 1793170882,
           "source": {
             "type": "git",
             "url": "https://github.com/tula-liuxin/ayuan",
-            "commit": "41c574c07afaac2753cb68de9b4a1355cba7da40"
+            "commit": "8eae9a8e691186b1608142e1b7c51503f66afb9e"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.3"
