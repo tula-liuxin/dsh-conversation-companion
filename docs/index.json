@@ -624,6 +624,18 @@
       },
       "versions": [
         {
+          "version": "2.0.1",
+          "publishTimestamp": 1793176710,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/ayuan",
+            "commit": "217da3d0d4f63028444fbd1c6184cdefeb1b0a96"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "2.0.0",
           "publishTimestamp": 1793170882,
           "source": {
