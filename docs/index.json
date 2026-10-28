@@ -414,8 +414,8 @@
         "zh": "Leo 状态"
       },
       "description": {
-        "en": "Leo TODO board and Yuan assistant. Obsidian tasks appear automatically; conversation suggestions require acceptance. The whale opens a movable, resizable nonmodal panel with saved layout, native DSH chat, trajectory, model selection and tools. Yuan has a dedicated identity, full access, a page-context tool and traceable automatic memory. Lightweight page text, code and thumbnails provide context; devices share tasks, suggestions and memory.",
-        "zh": "Leo 待办看板与阿源助手：Obsidian 待办自动展示，会话候选确认后追踪。小鲸鱼打开可拖动、缩放并记住布局的非模态浮框，复用 DSH 原生对话、轨迹、模型选择和工具；阿源有独立身份、全权限、专用位置工具和可追溯的自动记忆。轻量携带当前页面文字、代码和缩略图，支持多设备共用待办、建议与记忆。"
+        "zh": "个人待办看板：来源发现、建议审核、多设备同步。阿源助手现为独立 ayuan 插件。",
+        "en": "Personal task board, reviewed suggestions and device sync. The Ayuan assistant is now a separate plugin."
       },
       "icon": "leo-status-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -424,6 +424,18 @@
         "url": "https://github.com/tula-liuxin/leo-status"
       },
       "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1793169326,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "c7d2bb32cbc8a871416ad92b246b005a556934a3"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.9.0",
           "publishTimestamp": 1793153873,
@@ -587,6 +599,37 @@
             "type": "git",
             "url": "https://github.com/tula-liuxin/leo-status",
             "commit": "19ed0642474d6d29fd53a124b07c78e8683b323f"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ayuan",
+      "title": {
+        "zh": "阿源",
+        "en": "Ayuan"
+      },
+      "description": {
+        "zh": "独立浮框、真实 Agent 会话、可追溯记忆与页面/会话来源上下文。可与 Leo 待办看板配合。",
+        "en": "A floating assistant with native Agent sessions, traceable memory and sourced context. Integrates with Leo Status."
+      },
+      "icon": "ayuan-icon.svg",
+      "author": "Leo / tula-liuxin",
+      "homepage": "https://github.com/tula-liuxin/ayuan#readme",
+      "repository": {
+        "url": "https://github.com/tula-liuxin/ayuan"
+      },
+      "versions": [
+        {
+          "version": "2.0.0",
+          "publishTimestamp": 1793169326,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/ayuan",
+            "commit": "41c574c07afaac2753cb68de9b4a1355cba7da40"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.3"
