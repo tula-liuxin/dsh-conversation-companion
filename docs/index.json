@@ -351,8 +351,8 @@
         "zh": "Leo 状态"
       },
       "description": {
-        "en": "A TODO board aggregated from Obsidian notes and DSH sessions, with automatic vault discovery (checkbox/#todo/frontmatter rules plus incremental cache). Session todos never auto-enter the board: they are filtered into Yuan suggestions and only appear after you accept them, with subagent sessions skipped. Yuan runs as a real DSH agent with the same full tools and permissions as you (read files only when needed) and a Markdown chat with tool cards, memory, reminders and categorized red-dot signals. Local Markdown todos can be checked/unchecked, cancelled/restored and deleted inline; this machine can be the hub and other devices join with a password.",
-        "zh": "把 Obsidian 笔记与 DSH 会话里的 TODO 汇总成一个看板：自动发现 Obsidian 库（复选框 / #todo / frontmatter 规则 + 增量缓存）。会话 todo 不再自动进看板——只精筛成阿源建议，你在阿源里点接受后才出现，子代理会话默认跳过。阿源是真实的 DSH Agent：拥有和你相同的完整工具与权限（只在需要时读文件），面板里有 Markdown 对话、工具卡、记忆、提醒与分类红点信号。本地 Markdown todo 可直接勾选/取消勾选、作废/启用/删除。本机可作中心，其他设备用密码加入。"
+        "en": "Leo TODO board and Yuan assistant. Obsidian tasks appear automatically; conversation suggestions require acceptance. The whale opens a movable, resizable nonmodal panel with saved layout, native DSH chat, trajectory, model selection and tools. Yuan has a dedicated identity, full access, a page-context tool and traceable automatic memory. Lightweight page text, code and thumbnails provide context; devices share tasks, suggestions and memory.",
+        "zh": "Leo 待办看板与阿源助手：Obsidian 待办自动展示，会话候选确认后追踪。小鲸鱼打开可拖动、缩放并记住布局的非模态浮框，复用 DSH 原生对话、轨迹、模型选择和工具；阿源有独立身份、全权限、专用位置工具和可追溯的自动记忆。轻量携带当前页面文字、代码和缩略图，支持多设备共用待办、建议与记忆。"
       },
       "icon": "leo-status-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -361,6 +361,18 @@
         "url": "https://github.com/tula-liuxin/leo-status"
       },
       "versions": [
+        {
+          "version": "0.7.0",
+          "publishTimestamp": 1793148249,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "8c4f7bf397d8396dd2e671c9e0b42e391dc5a5d3"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.4.6",
           "publishTimestamp": 1793106198,
