@@ -2,6 +2,13 @@
 
 Environment: Windows Desktop DeepSeek Harness 0.2.1-rc.3; ordinary npm CLI also upgraded and version-checked at 0.2.1-rc.3.
 
+## 0.5.6 图标化点击操作验证（2026-10-28）
+
+- 24 项 Node 测试与 JavaScript 语法检查通过。新增用例全程不触发键盘事件：点 ⌄ 展开三条候选；点 ✓ 采用当前选中候选并写入草稿；点 ← 回到上一组、点 → 回最新一组；点 ↻ 只发一次换组请求；点 ⌃ 收起为一条；点 × 隐藏并写入本机隐藏状态；状态提示旁的 × 同样可点。
+- 图标为内联 SVG，按钮带 `aria-label` 与 `title`，约 30px 点击区域并有按下/禁用反馈；Tab、↓ / →、← / →、Esc 等原有键盘用例仍全部通过，说明两套入口互不回归。
+- 用桌面自带 CLI/插件管理把 0.5.6 tarball 装入 desktop profile，安装结果 `applied`；已安装 client.js、package.json 与源码 SHA-256 一致，客户端槽位 `copilot-ghost` / `copilot-review` 仍活跃。
+- 未经真实手机触屏或浏览器控制验证最终视觉与手感（本轮无浏览器控制能力），需在设备上确认图标大小与点按体验。
+
 ## 0.5.3 点击采用验证（2026-10-27）
 
 - 23 项 Node 测试与 JavaScript 语法检查通过。新增覆盖：折叠态点击候选即填入草稿；展开态点击非选中候选采用该条；采用后焦点回到输入框；点击标题/空白仍只交回焦点。

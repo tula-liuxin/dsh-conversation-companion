@@ -64,6 +64,32 @@ window.__ModuleLoader__.load({
         border: '1px solid var(--dsw-alias-border-subtle, #e2e2e2)',
         background: 'transparent', color: 'inherit',
       },
+      // Icon-only controls: a full 30px square hit area that works with a mouse
+      // and with a finger, so every prediction action is reachable on a phone.
+      iconBtn: {
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 30, height: 30, minWidth: 30, padding: 0, margin: 0,
+        border: 'none', borderRadius: 8, background: 'transparent',
+        color: 'var(--dsw-alias-text-secondary, #888)', cursor: 'pointer',
+        touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+        lineHeight: 1, flex: '0 0 auto',
+      },
+    }
+
+    // Inline glyphs instead of keyboard hints: the same actions as Tab, ↓/→,
+    // ←/→, ↑ and Esc, but announced by icon and usable by tap or click.
+    const ICON_PATHS = {
+      accept: 'M3.5 8.5 6.6 11.6 12.5 4.6',
+      more: 'M4 6.2 8 10.2 12 6.2',
+      less: 'M4 9.8 8 5.8 12 9.8',
+      older: 'M10.4 4.4 6.4 8 10.4 11.6',
+      newer: 'M5.6 4.4 9.6 8 5.6 11.6',
+      refresh: 'M12.9 8.2A4.9 4.9 0 1 1 11.3 4.2M13.1 3.2v3.4H9.7',
+      hide: 'M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8',
+    }
+    function Icon({ name, size = 15 }) {
+      return h('svg', { width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        h('path', { d: ICON_PATHS[name] }))
     }
 
 
@@ -273,6 +299,23 @@ window.__ModuleLoader__.load({
               }).catch(error => setRequestNotice({ ...request, pending: false, error: error.message || String(error) }))
               .finally(() => { if (requesting.current === request) requesting.current = false })
           }
+          // Pointer equivalents of the ← / → group keys, so phones can browse
+          // earlier prediction groups and ask for a fresh one without a keyboard.
+          const browseOlder = () => {
+            const older = batches[Math.max(0, page - 1)]
+            if (!older) return
+            setBrowsing({ sessionId: props.sessionId, sourceSeq: live.sourceSeq, at: older.at })
+            setSelected(0)
+          }
+          const browseNewer = () => {
+            const newer = batches[page + 1]
+            if (newer) {
+              setBrowsing({ sessionId: props.sessionId, sourceSeq: live.sourceSeq, at: newer.at })
+              setSelected(0)
+              return
+            }
+            requestPrediction()
+          }
           useEffect(() => { setSelected(0) }, [props.sessionId, view?.at])
           useEffect(() => {
             if (current.sessionId === props.sessionId) publish({ view })
@@ -292,6 +335,17 @@ window.__ModuleLoader__.load({
             setExpanded(props.sessionId, view, false)
             editor?.focus({ preventScroll: true })
           }
+          // The × icon hides the whole panel; it never has to be pressed twice
+          // like Esc, which first collapses an expanded list.
+          const hidePredictions = () => {
+            setSelected(0)
+            setExpanded(props.sessionId, view, false)
+            setPredictionsHidden(true)
+          }
+          // Keep the composer from stealing focus and prevent the browser from
+          // synthesizing a second activation from the same tap.
+          const keepComposerFocus = event => event?.preventDefault?.()
+          const generating = live?.status === 'pending' || live?.summaryPending
           // Adopt a candidate into the draft without sending it. Clicking is the
           // primary gesture; Tab stays as an accelerator for the selected one.
           const tap = useRef(null)
@@ -366,16 +420,30 @@ window.__ModuleLoader__.load({
           }, [predictionsHidden, draft, running, props.sessionId, options.length, live])
           if (!available) {
             const status = !predictionsHidden && !draft && !options.length
-              ? requestError || live?.error || (notice?.pending || live?.status === 'pending' ? '正在生成预测… Esc 关闭' : '') : ''
-            if (status) return h('div', { ref: anchor, role: 'region', 'aria-label': '下一句预测状态', style: { position: 'absolute', bottom: '100%', left: 0, right: 0, padding: '7px 12px', fontSize: 12, background: 'var(--dsw-alias-bg-elevated, #fff)', border: '1px solid var(--dsw-alias-border-subtle, #ddd)', borderRadius: 8, pointerEvents: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-              h('span', { role: 'status' }, status), h('button', { type: 'button', style: { ...CSS.btn, padding: '2px 6px', fontSize: 11 }, onMouseDown: e => e.preventDefault(), onClick: () => setPredictionsHidden(true) }, '关闭 · Esc'))
+              ? requestError || live?.error || (notice?.pending || live?.status === 'pending' ? '正在生成预测…' : '') : ''
+            if (status) return h('div', { ref: anchor, role: 'region', 'aria-label': '下一句预测状态', style: { position: 'absolute', bottom: '100%', left: 0, right: 0, padding: '7px 8px 7px 12px', fontSize: 12, background: 'var(--dsw-alias-bg-elevated, #fff)', border: '1px solid var(--dsw-alias-border-subtle, #ddd)', borderRadius: 8, pointerEvents: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 } },
+              h('span', { role: 'status' }, status),
+              h('button', { type: 'button', title: '隐藏（Esc）', 'aria-label': '隐藏下一句预测', style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: hidePredictions }, h(Icon, { name: 'hide' })))
             return h('span', { ref: anchor, hidden: true, 'aria-hidden': true })
           }
           return h(React.Fragment, null,
-            h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}.pc-predictions [role="option"]:hover{background:var(--dsw-alias-bg-subtle, #f5f5f8)}`),
-            h('div', { ref: list, className: 'pc-predictions', onMouseDown: e => { if (e.target?.closest?.('button,[role="option"]')) return; e.preventDefault(); focusEditor() }, role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，使用上下箭头切换，点击候选或按 Tab 采用' : '下一句预测，点击候选采用，下箭头或右箭头展开更多', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
+            h('style', null, `[data-composer-card]:has(.pc-predictions) [data-composer-placeholder]{visibility:hidden}[data-composer-card]:has(.pc-predictions) [data-input-scroll]{min-height:${height + 12}px;max-height:none}.pc-predictions:focus{outline:none}.pc-predictions [role="option"]:hover{background:var(--dsw-alias-bg-subtle, #f5f5f8)}.pc-predbar button:hover{background:var(--dsw-alias-bg-subtle, #f2f2f5)}.pc-predbar button:active{background:var(--dsw-alias-bg-subtle, #e8e8ee)}.pc-predbar button:disabled{opacity:.35;cursor:default;background:transparent}`),
+            h('div', { ref: list, className: 'pc-predictions', onMouseDown: e => { if (e.target?.closest?.('button,[role="option"]')) return; e.preventDefault(); focusEditor() }, role: 'listbox', tabIndex: 0, 'aria-label': expanded ? '下一句预测，点击候选采用；图标可换组、重新生成、收起或隐藏' : '下一句预测，点击候选采用；图标可展开更多候选或隐藏', 'aria-activedescendant': 'pc-option-' + props.sessionId + '-' + index,
               style: { position: 'absolute', top: 10, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 2, pointerEvents: 'auto', background: 'var(--dsw-specific-input-major, #fff)', fontSize: 14 } },
-              h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } }, h('span', null, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'), h('span', { style: { display: 'flex', alignItems: 'center', gap: 12 } }, h('span', null, expanded ? '↑ ↓ 切换 · ← 上一组 · → ' + (page < batches.length - 1 ? '下一组' : live?.status === 'pending' || live?.summaryPending ? '生成中' : '换一组') + ' · 点击或 Tab 采用' : '点击或 Tab 采用 · ↓ / → 更多 · Esc 隐藏'), expanded ? h('button', { type: 'button', title: '收起为第一条预测（Esc）', 'aria-label': '收起预测', style: { ...CSS.btn, padding: '2px 8px', fontSize: 12 }, onClick: dismiss }, '收起 · Esc') : null)),
+              h('div', { className: 'pc-predbar', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 30, color: 'var(--dsw-alias-text-secondary, #888)', fontSize: 11 } },
+                h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, expanded ? '下一句 · 第 ' + (page + 1) + '/' + batches.length + ' 组' : '下一句'),
+                h('span', { style: { display: 'flex', alignItems: 'center', gap: 1, marginRight: -5 } },
+                  h('button', { type: 'button', title: '采用（Tab）', 'aria-label': '采用当前候选', style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: event => { event?.stopPropagation(); accept() } }, h(Icon, { name: 'accept' })),
+                  expanded
+                    ? h('button', { type: 'button', title: '上一组（←）', 'aria-label': '上一组预测', disabled: page <= 0, style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: event => { event?.stopPropagation(); browseOlder() } }, h(Icon, { name: 'older' }))
+                    : h('button', { type: 'button', title: '更多候选（↓ / →）', 'aria-label': '展开更多候选', style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: event => { event?.stopPropagation(); setSelected(0); setExpanded(props.sessionId, view, true) } }, h(Icon, { name: 'more' })),
+                  expanded
+                    ? h('button', { type: 'button', title: page < batches.length - 1 ? '下一组（→）' : generating ? '正在生成新的一组' : '换一组（→）', 'aria-label': page < batches.length - 1 ? '下一组预测' : '重新生成预测', disabled: generating, style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: event => { event?.stopPropagation(); if (!generating) browseNewer() } }, h(Icon, { name: page < batches.length - 1 ? 'newer' : 'refresh' }))
+                    : null,
+                  expanded
+                    ? h('button', { type: 'button', title: '收起（Esc）', 'aria-label': '收起预测', style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: event => { event?.stopPropagation(); dismiss() } }, h(Icon, { name: 'less' }))
+                    : null,
+                  h('button', { type: 'button', title: '隐藏（Esc）', 'aria-label': '隐藏下一句预测', style: CSS.iconBtn, onMouseDown: keepComposerFocus, onClick: event => { event?.stopPropagation(); hidePredictions() } }, h(Icon, { name: 'hide' })))),
               live?.status === 'pending' ? h('div', { role: 'status', style: { fontSize: 12 } }, '正在生成新的一组，旧建议仍可查看…') : null,
               live?.manualDuringTurn ? h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '基于触发时的上下文，主回复可能仍在更新') : null,
               live?.candidatesPending ? h('div', { role: 'status', style: { fontSize: 11, color: 'var(--dsw-alias-text-secondary, #888)' } }, '其余候选生成中，已完成的可采用') : null,

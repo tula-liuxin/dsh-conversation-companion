@@ -2,17 +2,18 @@
 
 Concise next-message suggestions and plain-language summaries for DeepSeek Harness.
 
-Third-party plugin, MIT licensed. Beta 0.5.3, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
+Third-party plugin, MIT licensed. Beta 0.5.6, targeting Windows Desktop DSH 0.2.1-rc.3 only. The current UI and generation instructions are Chinese-first. Other OS/versions are unverified.
 
 Download the release tarball. Launch Desktop once to initialize its profile, then fully quit through the Application menu. On Windows, use its bundled CLI in PowerShell (adjust the download path):
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.5.3.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\Downloads\dsh-conversation-companion-0.5.6.tgz"
 ```
 
 Reopen Desktop and check the plugin version. The ordinary npm CLI cannot manage the reserved `desktop` profile. Configure `deepseek-official` / `deepseek-flash` first. Remove the old `@local/prompt-copilot` development bundle before installing this one.
 
 - Up/down selects among up to three useful suggestions; only the selected prompt expands.
+- The panel header is a row of icon buttons: checkmark adopts the current candidate, chevron-down expands all, arrows browse batches (refresh icon on the latest one), chevron-up collapses, × hides. Click or tap; no keyboard is needed, so every action works on a phone.
 - Click a candidate to insert it into your draft, or press Tab for the selected one; adoption never sends.
 - Only the first suggestion is shown by default. Press Down or Right to expand all candidates. Clicking any candidate adopts it without sending; Esc collapses to the first.
 - The sparkle button opens an editable, draggable, resizable summary inside DSH.
