@@ -414,8 +414,8 @@
         "zh": "Leo 状态"
       },
       "description": {
-        "zh": "个人待办看板：来源发现、建议审核、多设备同步。阿源助手现为独立 ayuan 插件。",
-        "en": "Personal task board, reviewed suggestions and device sync. The Ayuan assistant is now a separate plugin."
+        "zh": "独立富文本笔记、时间轴与层级待办；本机中心存储，支持草稿、附件与阿源摘要。",
+        "en": "Independent rich-text notes, timeline and nested tasks with local-centered storage, drafts, attachments and Ayuan summaries."
       },
       "icon": "leo-status-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -424,6 +424,18 @@
         "url": "https://github.com/tula-liuxin/leo-status"
       },
       "versions": [
+        {
+          "version": "2.0.0",
+          "publishTimestamp": 1793203212,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "4492549bf05a86fee169d1163ceab27a6a466198"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "1.0.0",
           "publishTimestamp": 1793170882,
