@@ -425,6 +425,18 @@
       },
       "versions": [
         {
+          "version": "2.1.0",
+          "publishTimestamp": 1793246885,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "034bfab9cf1f0bbfb2ef1c98d7c7649dd7d6c3ed"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "2.0.0",
           "publishTimestamp": 1793203212,
           "source": {
@@ -636,6 +648,18 @@
       },
       "versions": [
         {
+          "version": "2.0.3",
+          "publishTimestamp": 1793246885,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/ayuan",
+            "commit": "cf7276125a60c3aacffbcde151df2d30e08078a2"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "2.0.2",
           "publishTimestamp": 1793178501,
           "source": {
@@ -666,6 +690,37 @@
             "type": "git",
             "url": "https://github.com/tula-liuxin/ayuan",
             "commit": "8eae9a8e691186b1608142e1b7c51503f66afb9e"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        }
+      ]
+    },
+    {
+      "name": "leo-quick-launcher",
+      "title": {
+        "zh": "快捷悬浮球",
+        "en": "Quick Launcher"
+      },
+      "description": {
+        "zh": "可扩展的快捷悬浮球；配合 leo-status 快速新建待办或录音。",
+        "en": "Extensible floating shortcuts for new tasks and recordings with leo-status."
+      },
+      "icon": "leo-quick-icon.svg",
+      "author": "Leo / tula-liuxin",
+      "homepage": "https://github.com/tula-liuxin/leo-quick-launcher#readme",
+      "repository": {
+        "url": "https://github.com/tula-liuxin/leo-quick-launcher"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1793246885,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-quick-launcher",
+            "commit": "4d8c0aa8e84ab0c4e545ecb87f727295799fde37"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.3"
