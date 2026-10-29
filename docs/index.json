@@ -425,6 +425,18 @@
       },
       "versions": [
         {
+          "version": "2.2.0",
+          "publishTimestamp": 1793257800,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "a5c862146b73c8d8d3ca53b6ba015450066c187c"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "2.1.0",
           "publishTimestamp": 1793246885,
           "source": {
@@ -648,6 +660,18 @@
       },
       "versions": [
         {
+          "version": "2.0.4",
+          "publishTimestamp": 1793257800,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/ayuan",
+            "commit": "be031dac08a804a5358f00c4f3b93adf993be814"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "2.0.3",
           "publishTimestamp": 1793246885,
           "source": {
@@ -714,6 +738,18 @@
         "url": "https://github.com/tula-liuxin/leo-quick-launcher"
       },
       "versions": [
+        {
+          "version": "0.2.0",
+          "publishTimestamp": 1793257800,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-quick-launcher",
+            "commit": "cebec265bf63b6f79e5eda554808ce91e04c8e6c"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.1.0",
           "publishTimestamp": 1793246885,
