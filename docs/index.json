@@ -813,6 +813,37 @@
           }
         }
       ]
+    },
+    {
+      "name": "voice-ayuan",
+      "title": {
+        "zh": "阿源语音通话",
+        "en": "Ayuan Voice Call"
+      },
+      "description": {
+        "zh": "在输入区点一个电话图标，用实时语音和阿源连续对话；自动管理远端语音服务隧道与网关。",
+        "en": "Click a phone icon in the composer to talk to Ayuan in realtime; manages the remote voice-service tunnel and gateway automatically."
+      },
+      "icon": "voice-ayuan-icon.svg",
+      "author": "Leo / tula-liuxin",
+      "homepage": "https://github.com/tula-liuxin/dsh-voice-ayuan#readme",
+      "repository": {
+        "url": "https://github.com/tula-liuxin/dsh-voice-ayuan"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1793283672,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-voice-ayuan",
+            "commit": "745be4b04d1b2b282b47bf3ff5a58e9b6c857b93"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        }
+      ]
     }
   ]
 }
