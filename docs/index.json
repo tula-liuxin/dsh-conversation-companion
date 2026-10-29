@@ -119,6 +119,19 @@
       },
       "versions": [
         {
+          "version": "0.2.3",
+          "publishTimestamp": 1793271523,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-center",
+            "commit": "9cc72637b36633080a042eaba80f7f26600f6e2b",
+            "path": "plugin"
+          },
+          "engines": {
+            "dsh": "0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.2.2",
           "publishTimestamp": 1793155506,
           "source": {
@@ -424,6 +437,18 @@
         "url": "https://github.com/tula-liuxin/leo-status"
       },
       "versions": [
+        {
+          "version": "2.3.0",
+          "publishTimestamp": 1793271523,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-status",
+            "commit": "486c1fbdd61182f4a865786115e2b23736876e45"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "2.2.0",
           "publishTimestamp": 1793257800,
