@@ -398,6 +398,18 @@
       },
       "versions": [
         {
+          "version": "0.1.8",
+          "publishTimestamp": 1793381611,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/my-dsh-ui",
+            "commit": "3c8c041d512656843023b985be89b2de82f19e36"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.1.7",
           "publishTimestamp": 1793150636,
           "source": {
