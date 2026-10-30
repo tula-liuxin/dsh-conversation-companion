@@ -923,6 +923,18 @@
       },
       "versions": [
         {
+          "version": "0.2.2",
+          "publishTimestamp": 1793381450,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-quick-launcher",
+            "commit": "d3baa965be66eaa111a2249f6720a1ac403bcc97"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.2.1",
           "publishTimestamp": 1793319176,
           "source": {
