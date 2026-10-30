@@ -687,8 +687,8 @@
         "en": "Ayuan"
       },
       "description": {
-        "zh": "独立浮框、真实 Agent 会话、可追溯记忆与页面/会话来源上下文。可与 Leo 待办看板配合。",
-        "en": "A floating assistant with native Agent sessions, traceable memory and sourced context. Integrates with Leo Status."
+        "zh": "阿源：跨设备共享记忆与状态的 DSH 助手（独立浮框、真实 Agent 会话、记忆与页面上下文）。2.0.9 合并上游 2.0.8，并保留两个本地悬浮按钮补丁。",
+        "en": "Ayuan: a shared-memory DSH assistant with a floating conversation panel and real agent sessions. 2.0.9 rebases onto upstream 2.0.8 and keeps two local launcher patches."
       },
       "icon": "ayuan-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -697,6 +697,18 @@
         "url": "https://github.com/tula-liuxin/ayuan"
       },
       "versions": [
+        {
+          "version": "2.0.10",
+          "publishTimestamp": 1793319211,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/ayuan",
+            "commit": "f44188e17b85dcae46b20636c053a2fd81d76218"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "2.0.8",
           "publishTimestamp": 1793264618,
@@ -778,8 +790,8 @@
         "en": "Quick Launcher"
       },
       "description": {
-        "zh": "可扩展的快捷悬浮球；配合 leo-status 快速新建待办或录音。",
-        "en": "Extensible floating shortcuts for new tasks and recordings with leo-status."
+        "zh": "可扩展的快捷悬浮球：与阿源气泡成组拖动和贴边；0.2.1 保持面板打开时仍可见、贴边位置钳制在视口内。",
+        "en": "Extensible quick-action launcher that docks and drags with the Ayuan bubble; 0.2.1 keeps it visible while the panel is open and clamps docked positions into the viewport."
       },
       "icon": "leo-quick-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -788,6 +800,18 @@
         "url": "https://github.com/tula-liuxin/leo-quick-launcher"
       },
       "versions": [
+        {
+          "version": "0.2.1",
+          "publishTimestamp": 1793319176,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/leo-quick-launcher",
+            "commit": "54819b948ccade809bc21e970d988885054aefaa"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.2.0",
           "publishTimestamp": 1793257800,
