@@ -735,6 +735,18 @@
       },
       "versions": [
         {
+          "version": "2.0.11",
+          "publishTimestamp": 1793358072,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/ayuan",
+            "commit": "1db0667b205c0f4614a6243c58e44274a04e5e35"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "2.0.10",
           "publishTimestamp": 1793319211,
           "source": {
@@ -892,6 +904,18 @@
         "url": "https://github.com/tula-liuxin/dsh-voice-ayuan"
       },
       "versions": [
+        {
+          "version": "0.2.7",
+          "publishTimestamp": 1793358001,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-voice-ayuan",
+            "commit": "f2e1b5b17d3c6d9074c2a75fdc0c8a6e964783db"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.2.6",
           "publishTimestamp": 1793357462,
