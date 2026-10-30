@@ -1,6 +1,6 @@
 {
   "name": "dsh-conversation-companion",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "private": false,
   "description": "简短的下一句预测、输入笔误纠正和通俗摘要；采用、展开、换组、收起、隐藏都有图标按钮，点击或触屏即可操作，也保留键盘快捷键。",
   "type": "module",
@@ -45,7 +45,8 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check index.js && node --check client.js"
+    "check": "node --check index.js && node --check client.js",
+    "verify": "npm run check && npm run test"
   },
   "author": {
     "name": "leo",
