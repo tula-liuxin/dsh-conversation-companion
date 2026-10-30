@@ -893,6 +893,18 @@
       },
       "versions": [
         {
+          "version": "0.2.6",
+          "publishTimestamp": 1793357462,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-voice-ayuan",
+            "commit": "e08fd7901a335ea02d6675df14a5c305eed81862"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.2.5",
           "publishTimestamp": 1793353785,
           "source": {
