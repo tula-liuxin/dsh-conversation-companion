@@ -1,6 +1,6 @@
 {
   "name": "dsh-conversation-companion",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "private": false,
   "description": "简短的下一句预测、输入笔误纠正和通俗摘要；采用、展开、换组、收起、隐藏都有图标按钮，点击或触屏即可操作，也保留键盘快捷键。",
   "type": "module",
@@ -34,7 +34,7 @@
   },
   "license": "MIT",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": ">=0.2.1-rc.3"
   },
   "keywords": [
     "deepseek-harness",
