@@ -873,7 +873,7 @@
           "source": {
             "type": "git",
             "url": "https://github.com/tula-liuxin/dsh-voice-ayuan",
-            "commit": "9fa2d44658459624d4612fbb7424920c2c9ee62c"
+            "commit": "74103a7466e89d4a0a357c8dfa95b78d25fd03e2"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.3"
