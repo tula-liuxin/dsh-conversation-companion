@@ -857,8 +857,8 @@
         "en": "Ayuan Voice Call"
       },
       "description": {
-        "zh": "豆包式实时语音通话：点电话图标即可用语音和阿源连续对话；语音前台只负责快速回应，真正的任务交给当前 DSH 会话里的阿源执行并语音回报（自动管理远端语音服务和隧道）。",
-        "en": "Doubao-style realtime voice call: click the phone icon and talk to Ayuan; the voice front desk answers fast and hands real work to Ayuan in the current DSH session, then speaks the result (manages the remote voice service and tunnel automatically)."
+        "zh": "豆包式实时语音通话：点电话图标即可用语音和阿源连续对话；语音前台只负责快速回应，真正的任务交给阿源工作区里的会话执行（没有打开的会话会自动新建一张「语音通话」）并语音回报（自动管理远端语音服务和隧道）。",
+        "en": "Doubao-style realtime voice call: click the phone icon and talk to Ayuan; the voice front desk answers fast and hands real work to Ayuan in the Ayuan workspace session, auto-creating a dedicated voice session when none is open, then speaks the result (manages the remote voice service and tunnel automatically)."
       },
       "icon": "voice-ayuan-icon.svg",
       "author": "Leo / tula-liuxin",
@@ -867,6 +867,18 @@
         "url": "https://github.com/tula-liuxin/dsh-voice-ayuan"
       },
       "versions": [
+        {
+          "version": "0.2.4",
+          "publishTimestamp": 1793321495,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-voice-ayuan",
+            "commit": "9fa2d44658459624d4612fbb7424920c2c9ee62c"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.2.3",
           "publishTimestamp": 1793319935,
