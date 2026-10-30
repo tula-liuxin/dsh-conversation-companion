@@ -27,6 +27,18 @@
       },
       "versions": [
         {
+          "version": "0.5.8",
+          "publishTimestamp": 1793381259,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-conversation-companion",
+            "commit": "81fca7a036226014c858ed30c3dd7e800770d296"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.5.7",
           "publishTimestamp": 1793354362,
           "source": {
