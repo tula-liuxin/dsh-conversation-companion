@@ -27,6 +27,18 @@
       },
       "versions": [
         {
+          "version": "0.5.7",
+          "publishTimestamp": 1793354362,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-conversation-companion",
+            "commit": "9fb2f825280b24c01c16f8822b1e83934ffc4772"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
+        {
           "version": "0.5.6",
           "publishTimestamp": 1793160662,
           "source": {
@@ -118,6 +130,19 @@
         "directory": "plugin"
       },
       "versions": [
+        {
+          "version": "0.2.5",
+          "publishTimestamp": 1793354362,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/tula-liuxin/dsh-center",
+            "commit": "b7e215edd4f01cf5341da435956fb1f1017c7cb1",
+            "path": "plugin"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3"
+          }
+        },
         {
           "version": "0.2.4",
           "publishTimestamp": 1793276566,
